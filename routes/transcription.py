@@ -149,8 +149,8 @@ async def transcribe_audio(file: UploadFile = File(...)):
             word_count=wpm_data["word_count"]
         )
         
-        # Calculate confidence score
-        confidence_data = calculate_confidence_score(
+        # Calculate confidence score (async now)
+        confidence_data = await calculate_confidence_score(
             wpm=wpm_data["wpm"],
             filler_count=len(filler_words),
             word_count=wpm_data["word_count"],

@@ -5,7 +5,7 @@ from .transcription import transcribe_audio_file
 from .filler_detection import detect_filler_words_with_gpt, remove_filler_words
 from .wpm_calculation import calculate_wpm, count_words
 from .pause_analysis import analyze_pauses_and_hesitations, calculate_fluency_score
-from .confidence_analysis import calculate_confidence_score
+from .confidence_analysis import calculate_confidence_score, _generate_recommendations_with_gpt, _generate_recommendations_with_gpt
 
 __all__ = [
     "transcribe_audio_file",

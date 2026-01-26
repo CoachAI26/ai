@@ -62,8 +62,8 @@ async def test_confidence_analysis(audio_file_path: str):
             word_count=wpm_data["word_count"]
         )
         
-        # Step 6: Calculate confidence
-        confidence_data = calculate_confidence_score(
+        # Step 6: Calculate confidence (now async)
+        confidence_data = await calculate_confidence_score(
             wpm=wpm_data["wpm"],
             filler_count=len(filler_words),
             word_count=wpm_data["word_count"],

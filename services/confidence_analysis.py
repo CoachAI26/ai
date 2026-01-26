@@ -1,10 +1,13 @@
 """
 Confidence analysis service based on speech metrics
 """
+import json
+import re
 from typing import Dict, Any
+from config import get_openai_client, GPT_MODEL, GPT_TEMPERATURE
 
 
-def calculate_confidence_score(
+async def calculate_confidence_score(
     wpm: float,
     filler_count: int,
     word_count: int,
@@ -53,6 +56,7 @@ def calculate_confidence_score(
     # 2. Filler Score (Lower is better)
     # Optimal: 0-2 fillers per 100 words
     fillers_per_100 = (filler_count / word_count * 100) if word_count > 0 else 0
+    fillers_per_100_value = fillers_per_100  # Store for recommendations
     if fillers_per_100 <= 2:
         filler_score = 100.0
     elif fillers_per_100 <= 5:
@@ -106,15 +110,18 @@ def calculate_confidence_score(
     else:
         overall_rating = "Very Low"
     
-    # Generate recommendations
-    recommendations = _generate_recommendations(
+    # Generate recommendations using GPT
+    recommendations = await _generate_recommendations_with_gpt(
         wpm=wpm,
         wpm_score=wpm_score,
         filler_count=filler_count,
-        fillers_per_100=fillers_per_100,
+        fillers_per_100=fillers_per_100_value,
         pause_ratio=pause_ratio,
         hesitation_rate=hesitation_rate,
-        total_pauses=total_pauses
+        total_pauses=total_pauses,
+        total_hesitations=total_hesitations,
+        confidence_score=confidence_score,
+        overall_rating=overall_rating
     )
     
     return {
@@ -128,51 +135,97 @@ def calculate_confidence_score(
     }
 
 
-def _generate_recommendations(
+async def _generate_recommendations_with_gpt(
     wpm: float,
     wpm_score: float,
     filler_count: int,
     fillers_per_100: float,
     pause_ratio: float,
     hesitation_rate: float,
-    total_pauses: int
+    total_pauses: int,
+    total_hesitations: int,
+    confidence_score: float,
+    overall_rating: str
 ) -> list:
     """
-    Generate personalized recommendations based on metrics
+    Generate personalized recommendations using GPT based on speech metrics
     """
-    recommendations = []
+    prompt = f"""You are an expert speech coach analyzing a person's speaking performance. Based on the following metrics, provide personalized, actionable recommendations to improve their speech confidence and fluency.
+
+Speech Metrics:
+- Words Per Minute (WPM): {wpm:.2f} (Score: {wpm_score:.2f}/100)
+- Filler Words: {filler_count} total ({fillers_per_100:.2f} per 100 words)
+- Pauses: {total_pauses} pauses ({pause_ratio*100:.1f}% of speaking time)
+- Hesitations: {total_hesitations} hesitation sounds ({hesitation_rate:.2f} per 100 words)
+- Overall Confidence Score: {confidence_score:.2f}/100
+- Overall Rating: {overall_rating}
+
+Provide 2-4 specific, actionable recommendations that:
+1. Are personalized based on the actual metrics
+2. Are encouraging and constructive
+3. Focus on the areas that need the most improvement
+4. Provide concrete steps or techniques
+5. Are written in a friendly, supportive tone
+
+Return your response as a JSON object with this exact format:
+{{
+  "recommendations": [
+    "First recommendation here",
+    "Second recommendation here",
+    "Third recommendation here"
+  ]
+}}
+
+If the performance is excellent (confidence score > 85), provide 1-2 positive reinforcement messages.
+If there are multiple areas to improve, prioritize the most impactful ones.
+
+Recommendations:"""
+
+    try:
+        client = get_openai_client()
+        response = client.chat.completions.create(
+            model=GPT_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an expert speech coach. Provide personalized, actionable recommendations for improving speech confidence. Always return valid JSON only, no additional text."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=GPT_TEMPERATURE,
+            response_format={"type": "json_object"}
+        )
+        
+        # Parse the response
+        response_content = response.choices[0].message.content.strip()
+        
+        try:
+            parsed = json.loads(response_content)
+            if isinstance(parsed, dict) and "recommendations" in parsed:
+                recommendations = parsed["recommendations"]
+                if isinstance(recommendations, list):
+                    # Validate and clean recommendations
+                    cleaned_recommendations = []
+                    for rec in recommendations:
+                        if isinstance(rec, str) and len(rec.strip()) > 0:
+                            cleaned_recommendations.append(rec.strip())
+                    return cleaned_recommendations if cleaned_recommendations else ["Keep practicing to improve your speech confidence!"]
+        except json.JSONDecodeError:
+            # Fallback: try to extract recommendations from text
+            json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_content, re.DOTALL)
+            if json_match:
+                parsed = json.loads(json_match.group(1))
+                if "recommendations" in parsed:
+                    return parsed["recommendations"]
+        
+        # Last resort fallback
+        return ["Keep practicing to improve your speech confidence!"]
     
-    # WPM recommendations
-    if wpm < 100:
-        recommendations.append("Try to speak slightly faster. Optimal speaking rate is 120-160 WPM.")
-    elif wpm > 200:
-        recommendations.append("Consider slowing down your speech for better clarity and comprehension.")
-    elif wpm_score < 80:
-        recommendations.append("Aim for a speaking rate between 120-160 WPM for optimal communication.")
-    
-    # Filler word recommendations
-    if fillers_per_100 > 5:
-        recommendations.append(f"Reduce filler words (currently {fillers_per_100:.1f} per 100 words). Practice pausing silently instead of using 'um' or 'uh'.")
-    elif fillers_per_100 > 2:
-        recommendations.append("You're doing well! Try to reduce filler words even further for more confident speech.")
-    
-    # Pause recommendations
-    if pause_ratio > 0.20:
-        recommendations.append(f"Reduce pauses (currently {pause_ratio*100:.1f}% of speaking time). Plan your thoughts before speaking.")
-    elif pause_ratio > 0.10:
-        recommendations.append("Consider reducing pause time slightly for more fluid speech.")
-    
-    # Hesitation recommendations
-    if hesitation_rate > 6:
-        recommendations.append(f"Work on reducing hesitations (currently {hesitation_rate:.1f} per 100 words). Practice speaking more smoothly.")
-    elif hesitation_rate > 3:
-        recommendations.append("Good progress! Continue working on reducing hesitation sounds.")
-    
-    # General recommendations
-    if not recommendations:
-        recommendations.append("Excellent! Your speech shows high confidence. Keep up the great work!")
-    elif len(recommendations) == 1:
-        recommendations.append("Overall, your speech is good. Focus on the area mentioned above.")
-    
-    return recommendations
+    except Exception as e:
+        print(f"Error in GPT recommendations generation: {str(e)}")
+        # Fallback to basic recommendation
+        return ["Keep practicing to improve your speech confidence!"]
 
