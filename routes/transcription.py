@@ -48,7 +48,7 @@ async def health():
 @router.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe_audio(file: UploadFile = File(...)):
     """
-    Transcribe audio file to text and detect filler words
+    Transcribe audio file to text and analyze speech patterns
     
     - **file**: Audio file (MP3, WAV, M4A, OGG, FLAC, WebM, etc.)
     
@@ -61,11 +61,30 @@ async def transcribe_audio(file: UploadFile = File(...)):
     - WebM (audio/webm)
     - AAC (audio/x-aac)
     
-    Returns:
+    Returns comprehensive speech analysis including:
     - **text**: Full transcribed text
     - **filler_words**: List of detected filler words with positions
     - **filler_count**: Number of filler words found
     - **cleaned_text**: Text with filler words removed
+    - **duration_seconds**: Speaking duration
+    - **word_count**: Total word count
+    - **wpm**: Words per minute
+    - **total_pauses**: Number of pauses detected
+    - **total_hesitations**: Number of hesitation sounds
+    - **pause_durations**: List of pause durations
+    - **average_pause_duration**: Average pause duration
+    - **total_pause_time**: Total time spent in pauses
+    - **hesitation_words**: List of hesitation words found
+    - **fluency_score**: Fluency score (0-100)
+    - **pause_ratio**: Ratio of pause time to total time
+    - **hesitation_rate**: Hesitations per 100 words
+    - **confidence_score**: Overall confidence score (0-100)
+    - **wpm_score**: WPM component score
+    - **filler_score**: Filler words component score
+    - **pause_score**: Pause component score
+    - **hesitation_score**: Hesitation component score
+    - **overall_rating**: Overall rating (Excellent/Good/Moderate/Low/Very Low)
+    - **recommendations**: Personalized improvement recommendations
     """
     # Validate file type
     if not file.content_type:
