@@ -251,10 +251,3 @@ The final score ranges from 0 to 100 and is divided into 5 categories:
 - **40-54**: Low
 - **0-39**: Very Low
 
-## License
-
-MIT License
-
-## Repository
-
-https://github.com/CoachAI26/ai.git
