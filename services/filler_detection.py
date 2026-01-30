@@ -222,3 +222,56 @@ def remove_filler_words(text: str, filler_positions: List[Dict[str, Any]]) -> st
     
     return result
 
+
+async def generate_improved_text(text: str) -> str:
+    """
+    Generate an improved version of the text using GPT
+    
+    Args:
+        text: Original text to improve
+        
+    Returns:
+        Improved version of the text with better flow and clarity
+    """
+    from config import get_openai_client, GPT_MODEL
+    
+    client = get_openai_client()
+    
+    prompt = """
+    You are a professional speech editor. Your task is to improve the following transcribed speech 
+    by making it more concise, clear, and natural while preserving the original meaning and tone.
+    
+    Guidelines:
+    1. Remove all filler words and hesitations (um, uh, like, you know, etc.)
+    2. Fix any grammar or syntax errors
+    3. Make the speech more concise by removing unnecessary repetition
+    4. Improve sentence structure and flow
+    5. Keep the original meaning and tone intact
+    6. Maintain a conversational style
+    7. Keep technical terms and proper nouns as-is
+    
+    Input text to improve:
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model=GPT_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a professional speech editor that improves transcribed speech."},
+                {"role": "user", "content": f"{prompt}\n\n{text}"}
+            ],
+            temperature=0.3,
+            max_tokens=2000
+        )
+        
+        improved_text = response.choices[0].message.content.strip()
+        
+        # Remove any surrounding quotes if present
+        improved_text = re.sub(r'^"|"$', '', improved_text)
+        
+        return improved_text
+    except Exception as e:
+        print(f"Error generating improved text: {str(e)}")
+        # Return the original text if there's an error
+        return text
+

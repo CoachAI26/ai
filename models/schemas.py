@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 class TranscriptionResponse(BaseModel):
     """Response model for transcription endpoint"""
     text: str
+    improved_text: str  # Enhanced version of the text with better flow and clarity
     filler_words: List[Dict[str, Any]]
     filler_count: int
     cleaned_text: str

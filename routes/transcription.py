@@ -6,7 +6,7 @@ import re
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from models.schemas import TranscriptionResponse
 from services.transcription import transcribe_audio_file
-from services.filler_detection import detect_filler_words_with_gpt, remove_filler_words
+from services.filler_detection import detect_filler_words_with_gpt, remove_filler_words, generate_improved_text
 from services.wpm_calculation import calculate_wpm
 from services.pause_analysis import analyze_pauses_and_hesitations, calculate_fluency_score
 from services.confidence_analysis import calculate_confidence_score
@@ -161,12 +161,16 @@ async def transcribe_audio(file: UploadFile = File(...)):
             fluency_score=fluency_data["fluency_score"]
         )
         
+        # Generate improved text
+        improved_text = await generate_improved_text(cleaned_text)
+        
         # Clean up temp file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         
         return TranscriptionResponse(
             text=text,
+            improved_text=improved_text,  # Add improved text to response
             filler_words=filler_words,
             filler_count=len(filler_words),
             cleaned_text=cleaned_text,
