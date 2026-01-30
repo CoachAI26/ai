@@ -5,10 +5,18 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
 
+class TTSSpeech(BaseModel):
+    """Model for TTS speech data"""
+    audio_content: str  # Base64 encoded audio data
+    audio_format: str   # Audio format (e.g., 'mp3')
+    voice: str          # Voice used for TTS
+
+
 class TranscriptionResponse(BaseModel):
     """Response model for transcription endpoint"""
     text: str
     improved_text: str  # Enhanced version of the text with better flow and clarity
+    tts_speech: Optional[TTSSpeech] = None  # TTS audio of the improved text
     filler_words: List[Dict[str, Any]]
     filler_count: int
     cleaned_text: str

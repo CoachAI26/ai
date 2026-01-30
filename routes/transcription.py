@@ -10,6 +10,7 @@ from services.filler_detection import detect_filler_words_with_gpt, remove_fille
 from services.wpm_calculation import calculate_wpm
 from services.pause_analysis import analyze_pauses_and_hesitations, calculate_fluency_score
 from services.confidence_analysis import calculate_confidence_score
+from services.tts import text_to_speech
 
 # Supported audio formats by OpenAI Whisper
 SUPPORTED_AUDIO_FORMATS = {
@@ -164,6 +165,9 @@ async def transcribe_audio(file: UploadFile = File(...)):
         # Generate improved text
         improved_text = await generate_improved_text(cleaned_text)
         
+        # Convert improved text to speech
+        tts_result = await text_to_speech(improved_text)
+        
         # Clean up temp file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
@@ -171,6 +175,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
         return TranscriptionResponse(
             text=text,
             improved_text=improved_text,  # Add improved text to response
+            tts_speech=tts_result,        # Add TTS audio data
             filler_words=filler_words,
             filler_count=len(filler_words),
             cleaned_text=cleaned_text,
