@@ -3,7 +3,7 @@ Filler word detection service using GPT
 """
 import re
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from config import (
     get_openai_client,
     GPT_MODEL,
@@ -223,7 +223,12 @@ def remove_filler_words(text: str, filler_positions: List[Dict[str, Any]]) -> st
     return result
 
 
-async def generate_improved_text(text: str) -> str:
+async def generate_improved_text(
+    text: str,
+    level: Optional[str] = None,
+    category: Optional[str] = None,
+    title: Optional[str] = None,
+) -> str:
     """
     Generate an improved version of the text using GPT
     
@@ -237,6 +242,16 @@ async def generate_improved_text(text: str) -> str:
     
     client = get_openai_client()
     
+    context_block = ""
+    if level or category or title:
+        context_block = "\n\nChallenge context:\n"
+        if level:
+            context_block += f"- Level: {level}\n"
+        if category:
+            context_block += f"- Category: {category}\n"
+        if title:
+            context_block += f"- Title: {title}\n"
+
     prompt = """
     You are a professional speech editor. Your task is to improve the following transcribed speech 
     by making it more concise, clear, and natural while preserving the original meaning and tone.
@@ -258,7 +273,7 @@ async def generate_improved_text(text: str) -> str:
             model=GPT_MODEL,
             messages=[
                 {"role": "system", "content": "You are a professional speech editor that improves transcribed speech."},
-                {"role": "user", "content": f"{prompt}\n\n{text}"}
+                {"role": "user", "content": f"{prompt}{context_block}\n\n{text}"}
             ],
             temperature=0.3,
             max_tokens=2000

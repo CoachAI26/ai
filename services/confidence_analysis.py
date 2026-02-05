@@ -3,7 +3,7 @@ Confidence analysis service based on speech metrics
 """
 import json
 import re
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from config import get_openai_client, GPT_MODEL, GPT_TEMPERATURE
 
 
@@ -15,7 +15,10 @@ async def calculate_confidence_score(
     total_hesitations: int,
     pause_ratio: float,
     hesitation_rate: float,
-    fluency_score: float
+    fluency_score: float,
+    level: Optional[str] = None,
+    category: Optional[str] = None,
+    title: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Calculate confidence score based on multiple speech metrics
@@ -121,7 +124,10 @@ async def calculate_confidence_score(
         total_pauses=total_pauses,
         total_hesitations=total_hesitations,
         confidence_score=confidence_score,
-        overall_rating=overall_rating
+        overall_rating=overall_rating,
+        level=level,
+        category=category,
+        title=title,
     )
     
     return {
@@ -145,12 +151,25 @@ async def _generate_recommendations_with_gpt(
     total_pauses: int,
     total_hesitations: int,
     confidence_score: float,
-    overall_rating: str
+    overall_rating: str,
+    level: Optional[str] = None,
+    category: Optional[str] = None,
+    title: Optional[str] = None,
 ) -> list:
     """
     Generate personalized recommendations using GPT based on speech metrics
     """
-    prompt = f"""You are an expert speech coach analyzing a person's speaking performance. Based on the following metrics, provide personalized, actionable recommendations to improve their speech confidence and fluency.
+    challenge_context = ""
+    if level or category or title:
+        challenge_context = "\nChallenge context:\n"
+        if level:
+            challenge_context += f"- Level: {level}\n"
+        if category:
+            challenge_context += f"- Category: {category}\n"
+        if title:
+            challenge_context += f"- Title: {title}\n"
+
+    prompt = f"""You are an expert speech coach analyzing a person's speaking performance. Based on the following metrics, provide personalized, actionable recommendations to improve their speech confidence and fluency.{challenge_context}
 
 Speech Metrics:
 - Words Per Minute (WPM): {wpm:.2f} (Score: {wpm_score:.2f}/100)

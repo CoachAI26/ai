@@ -17,6 +17,9 @@ class TranscriptionResponse(BaseModel):
     text: str
     improved_text: str  # Enhanced version of the text with better flow and clarity
     tts_speech: Optional[TTSSpeech] = None  # TTS audio of the improved text
+    level: Optional[str] = None
+    category: Optional[str] = None
+    title: Optional[str] = None
     filler_words: List[Dict[str, Any]]
     filler_count: int
     cleaned_text: str

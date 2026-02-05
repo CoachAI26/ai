@@ -3,7 +3,7 @@ Transcription API endpoints
 """
 import os
 import re
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, File, UploadFile, HTTPException, Form
 from models.schemas import TranscriptionResponse
 from services.transcription import transcribe_audio_file
 from services.filler_detection import detect_filler_words_with_gpt, remove_filler_words, generate_improved_text
@@ -47,7 +47,12 @@ async def health():
 
 
 @router.post("/transcribe", response_model=TranscriptionResponse)
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    level: str | None = Form(None),
+    category: str | None = Form(None),
+    title: str | None = Form(None),
+):
     """
     Transcribe audio file to text and analyze speech patterns
     
@@ -159,11 +164,19 @@ async def transcribe_audio(file: UploadFile = File(...)):
             total_hesitations=pause_data["total_hesitations"],
             pause_ratio=fluency_data["pause_ratio"],
             hesitation_rate=fluency_data["hesitation_rate"],
-            fluency_score=fluency_data["fluency_score"]
+            fluency_score=fluency_data["fluency_score"],
+            level=level,
+            category=category,
+            title=title,
         )
         
         # Generate improved text
-        improved_text = await generate_improved_text(cleaned_text)
+        improved_text = await generate_improved_text(
+            cleaned_text,
+            level=level,
+            category=category,
+            title=title,
+        )
         
         # Convert improved text to speech
         tts_result = await text_to_speech(improved_text)
@@ -176,6 +189,9 @@ async def transcribe_audio(file: UploadFile = File(...)):
             text=text,
             improved_text=improved_text,  # Add improved text to response
             tts_speech=tts_result,        # Add TTS audio data
+            level=level,
+            category=category,
+            title=title,
             filler_words=filler_words,
             filler_count=len(filler_words),
             cleaned_text=cleaned_text,

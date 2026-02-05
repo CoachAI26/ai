@@ -13,6 +13,9 @@ BASE_URL = "http://localhost:8000"
 API_ENDPOINT = f"{BASE_URL}/api/v1/transcribe"
 AUDIO_FILE = "test_fatemeh.m4a"
 OUTPUT_DIR = "test_output"
+LEVEL = "medium"
+CATEGORY = "interview"
+TITLE = "Tell me about yourself."
 
 def convert_to_wav_if_needed(audio_path: str) -> str:
     """Convert audio to WAV format if needed"""
@@ -47,9 +50,14 @@ def test_full_pipeline(audio_file_path: str, output_dir: str = OUTPUT_DIR):
                     'audio/wav' if converted_audio.endswith('.wav') else 'audio/m4a'
                 )
             }
+            data = {
+                "level": LEVEL,
+                "category": CATEGORY,
+                "title": TITLE,
+            }
             
             print("Sending request to API...")
-            response = requests.post(API_ENDPOINT, files=files)
+            response = requests.post(API_ENDPOINT, files=files, data=data)
         
         if response.status_code != 200:
             print(f"Error: {response.status_code}")
