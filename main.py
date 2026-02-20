@@ -1,9 +1,22 @@
 """
 Main FastAPI application entry point
 """
+import logging
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.transcription import router as transcription_router
+
+# Text logging to console (when running server without Docker)
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)-8s %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[logging.StreamHandler(sys.stdout)],
+    force=True,
+)
+logger = logging.getLogger("seonai")
+logger.info("Logging configured (stdout)")
 
 # Initialize FastAPI app
 app = FastAPI(

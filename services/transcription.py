@@ -37,41 +37,45 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
             response_format="verbose_json"  # Get duration and segments (includes language)
         )
     
-    # Extract duration from response (support both object-like and dict-like)
-    duration_seconds = 0.0
-
-    # Try duration field directly
-    duration = getattr(transcription, "duration", None)
-    if duration is None and isinstance(transcription, dict):
-        duration = transcription.get("duration")
-
-    # Try segments if duration is missing or zero
+    # Extract segments first (needed for both duration and pause analysis)
     segments = getattr(transcription, "segments", None)
     if segments is None and isinstance(transcription, dict):
         segments = transcription.get("segments")
 
-    if isinstance(duration, (int, float)) and duration > 0:
-        duration_seconds = float(duration)
-    elif isinstance(segments, list) and segments:
+    # Duration for WPM: use actual speaking time from segments (sum of segment lengths)
+    # so WPM = words / (speaking_seconds/60). Fall back to file duration if no segments.
+    duration_seconds = 0.0
+    if isinstance(segments, list) and segments:
         try:
-            # segments may be dicts or objects; use 'end' field
-            ends = []
+            speaking_total = 0.0
             for s in segments:
-                if isinstance(s, dict) and "end" in s:
-                    ends.append(float(s["end"]))
-                elif hasattr(s, "end"):
-                    ends.append(float(s.end))
-            if ends:
-                duration_seconds = max(ends)
+                if isinstance(s, dict):
+                    start = float(s.get("start") or 0)
+                    end = float(s.get("end") or 0)
+                else:
+                    start = float(getattr(s, "start", 0) or 0)
+                    end = float(getattr(s, "end", 0) or 0)
+                speaking_total += max(0, end - start)
+            if speaking_total > 0:
+                duration_seconds = speaking_total
         except Exception:
-            duration_seconds = 0.0
-
-    # Extract segments for pause analysis
-    segments = None
-    if hasattr(transcription, 'segments') and transcription.segments:
-        segments = transcription.segments
-    elif isinstance(transcription, dict) and 'segments' in transcription:
-        segments = transcription['segments']
+            pass
+    if duration_seconds <= 0:
+        duration = getattr(transcription, "duration", None) or (isinstance(transcription, dict) and transcription.get("duration"))
+        if isinstance(duration, (int, float)) and duration > 0:
+            duration_seconds = float(duration)
+        elif isinstance(segments, list) and segments:
+            try:
+                ends = []
+                for s in segments:
+                    if isinstance(s, dict) and "end" in s:
+                        ends.append(float(s["end"]))
+                    elif hasattr(s, "end"):
+                        ends.append(float(s.end))
+                if ends:
+                    duration_seconds = max(ends)
+            except Exception:
+                pass
 
     # Detected language (e.g. "english", "french") for English-only enforcement
     detected_language = getattr(transcription, "language", None) or (isinstance(transcription, dict) and transcription.get("language")) or None

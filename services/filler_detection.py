@@ -301,27 +301,34 @@ OFF_TOPIC_MESSAGE = (
 async def check_answer_relevance_to_title(title: str, user_text: str) -> bool:
     """
     Check if the user's transcribed answer is relevant to the challenge title/question.
-    Returns True if relevant or if we cannot determine, False if clearly off-topic.
+    Lenient: give benefit of the doubt; only NO when clearly off-topic.
+    Returns True if relevant or unclear, False only when clearly unrelated.
     """
     if not title or not (user_text or "").strip():
         return True
+    # Very short answers: don't penalize as off-topic (might be partial or misheard)
+    if len((user_text or "").strip().split()) < 3:
+        return True
     from config import get_openai_client, GPT_MODEL
     client = get_openai_client()
-    prompt = f"""You are a strict judge. The challenge question/topic is:
+    prompt = f"""You are a fair judge. Give the speaker the benefit of the doubt.
+
+Challenge question/topic:
 "{title}"
 
-The user's spoken answer (transcribed) is:
+User's spoken answer (transcribed, may have filler words or small errors):
 "{user_text.strip()}"
 
-Is this answer clearly relevant to the question/topic? Does it address the same subject?
+Is this answer related to the question/topic?
 Answer with exactly one word: YES or NO.
-- YES: the answer is about the same topic or directly responds to the question.
-- NO: the answer is about something else, unrelated, or just filler/noise."""
+
+- YES if: the answer is about the same topic, or touches on it, or is a reasonable attempt, or you are unsure. Prefer YES when in doubt.
+- NO only if: the answer is clearly about a completely different subject, or is only noise/filler with no relation to the topic."""
     try:
         response = client.chat.completions.create(
             model=GPT_MODEL,
             messages=[
-                {"role": "system", "content": "You answer only YES or NO. No explanation."},
+                {"role": "system", "content": "You answer only YES or NO. When in doubt, answer YES. No explanation."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.0,

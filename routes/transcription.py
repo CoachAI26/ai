@@ -3,7 +3,10 @@ Transcription API endpoints
 """
 import os
 import re
+import logging
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form
+
+logger = logging.getLogger(__name__)
 from models.schemas import TranscriptionResponse
 from services.transcription import transcribe_audio_file
 from services.filler_detection import (
@@ -98,6 +101,13 @@ async def transcribe_audio(
     - **overall_rating**: Overall rating (Excellent/Good/Moderate/Low/Very Low)
     - **recommendations**: Personalized improvement recommendations
     """
+    logger.info(
+        "POST /transcribe | file=%s level=%s category=%s title=%s",
+        file.filename or "(no name)",
+        level or "-",
+        category or "-",
+        (title[:50] + "..." if title and len(title) > 50 else title) or "-",
+    )
     # Validate file type
     if not file.content_type:
         # Try to validate by file extension if content_type is missing
@@ -105,16 +115,19 @@ async def transcribe_audio(
             ext = file.filename.lower().split('.')[-1]
             supported_extensions = {'mp3', 'wav', 'm4a', 'ogg', 'flac', 'webm', 'aac', 'mp4'}
             if ext not in supported_extensions:
+                logger.warning("Rejected: unsupported file extension ext=%s", ext)
                 raise HTTPException(
                     status_code=400,
                     detail=f"Unsupported file format. Supported formats: MP3, WAV, M4A, OGG, FLAC, WebM, AAC"
                 )
         else:
+            logger.warning("Rejected: file type could not be determined")
             raise HTTPException(
                 status_code=400,
                 detail="File type could not be determined. Please ensure the file is an audio file."
             )
     elif file.content_type not in SUPPORTED_AUDIO_FORMATS and not file.content_type.startswith('audio/'):
+        logger.warning("Rejected: unsupported content_type=%s", file.content_type)
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported audio format: {file.content_type}. Supported formats: MP3, WAV, M4A, OGG, FLAC, WebM, AAC"
@@ -137,9 +150,18 @@ async def transcribe_audio(
         duration_seconds = transcription_result["duration_seconds"]
         segments = transcription_result.get("segments")
         detected_language = (transcription_result.get("language") or "").strip().lower()
+        text_preview = (text[:80] + "...") if text and len(text) > 80 else (text or "")
+        logger.info(
+            "Transcribed | language=%s duration=%.2fs len=%d | text=%s",
+            detected_language or "(none)",
+            duration_seconds,
+            len(text or ""),
+            text_preview,
+        )
 
         # English-only: reject if user did not speak English
         if detected_language and detected_language not in ("en", "english"):
+            logger.warning("Rejected: non-English language=%s", detected_language)
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
             raise HTTPException(
@@ -192,6 +214,7 @@ async def transcribe_audio(
             is_relevant = await check_answer_relevance_to_title(title.strip(), text)
             if not is_relevant:
                 off_topic = True
+            logger.info("Relevance check | title=%s relevant=%s off_topic=%s", title[:40], is_relevant, off_topic)
 
         if off_topic:
             improved_text = OFF_TOPIC_MESSAGE
@@ -226,7 +249,15 @@ async def transcribe_audio(
         # Clean up temp file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
-        
+
+        logger.info(
+            "Response | confidence=%.2f rating=%s wpm=%.1f words=%d filler_count=%d",
+            confidence_data["confidence_score"],
+            confidence_data["overall_rating"],
+            wpm_data["wpm"],
+            wpm_data["word_count"],
+            len(filler_words),
+        )
         return TranscriptionResponse(
             text=text,
             improved_text=improved_text,  # Add improved text to response
@@ -262,6 +293,7 @@ async def transcribe_audio(
         # Re-raise HTTP exceptions
         raise
     except Exception as e:
+        logger.exception("Transcribe failed: %s", e)
         # Clean up temp file if it exists
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
