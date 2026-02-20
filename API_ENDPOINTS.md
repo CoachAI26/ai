@@ -65,10 +65,20 @@ Upload an audio file and get comprehensive speech analysis.
 **Supported Formats:**
 - MP3, WAV, M4A, OGG, FLAC, WebM, AAC
 
+**Request (optional form fields):**
+- `level` (optional): Challenge level
+- `category` (optional): Category
+- `title` (optional): Title
+
 **Response:**
 ```json
 {
   "text": "Full transcribed text",
+  "improved_text": "Improved version with better flow and clarity",
+  "tts_speech": { "audio_content": "<base64>", "audio_format": "mp3", "voice": "alloy" },
+  "level": "B1",
+  "category": "Speaking",
+  "title": "My presentation",
   "filler_words": [
     {
       "word": "um",
@@ -103,7 +113,10 @@ Upload an audio file and get comprehensive speech analysis.
 ```
 
 **Response Fields:**
-- `text`: Transcribed text
+- `text`: Transcribed text (original)
+- `improved_text`: Improved version of the text (better flow, no fillers)
+- `tts_speech`: TTS audio of improved text (base64)
+- `level`, `category`, `title`: Echo of request context (if sent)
 - `filler_words`: List of filler words with positions
 - `filler_count`: Number of filler words
 - `cleaned_text`: Text without filler words

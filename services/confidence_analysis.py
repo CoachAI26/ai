@@ -43,56 +43,62 @@ async def calculate_confidence_score(
         - overall_rating: Text rating (Very Low, Low, Moderate, Good, Excellent)
         - recommendations: List of improvement recommendations
     """
-    # 1. WPM Score (Optimal range: 120-160 WPM)
-    # Too slow (< 100) or too fast (> 200) reduces confidence
-    if 120 <= wpm <= 160:
+    # 1. WPM Score — STRICTER: narrow optimal range (130–150), harsher penalties outside
+    # Optimal: 130-150 WPM only gets full score
+    if 130 <= wpm <= 150:
         wpm_score = 100.0
-    elif 100 <= wpm < 120:
-        wpm_score = 80.0 + ((wpm - 100) / 20) * 20  # 80-100
-    elif 160 < wpm <= 200:
-        wpm_score = 100.0 - ((wpm - 160) / 40) * 20  # 100-80
+    elif 115 <= wpm < 130:
+        wpm_score = 70.0 + ((wpm - 115) / 15) * 30  # 70-100
+    elif 150 < wpm <= 165:
+        wpm_score = 100.0 - ((wpm - 150) / 15) * 30  # 100-70
+    elif 100 <= wpm < 115:
+        wpm_score = 50.0 + ((wpm - 100) / 15) * 20  # 50-70
+    elif 165 < wpm <= 185:
+        wpm_score = 70.0 - ((wpm - 165) / 20) * 40  # 70-30
     elif wpm < 100:
-        wpm_score = max(0, 80.0 - ((100 - wpm) / 50) * 40)  # 40-80
-    else:  # wpm > 200
-        wpm_score = max(0, 80.0 - ((wpm - 200) / 50) * 40)  # 40-80
-    
-    # 2. Filler Score (Lower is better)
-    # Optimal: 0-2 fillers per 100 words
+        wpm_score = max(0, 50.0 - ((100 - wpm) / 40) * 50)  # 0-50
+    else:  # wpm > 185
+        wpm_score = max(0, 30.0 - ((wpm - 185) / 30) * 30)  # 0-30
+
+    # 2. Filler Score — STRICTER: only 0–1 per 100 words gets full score
     fillers_per_100 = (filler_count / word_count * 100) if word_count > 0 else 0
-    fillers_per_100_value = fillers_per_100  # Store for recommendations
-    if fillers_per_100 <= 2:
+    fillers_per_100_value = fillers_per_100
+    if fillers_per_100 <= 1:
         filler_score = 100.0
+    elif fillers_per_100 <= 2.5:
+        filler_score = 75.0 - ((fillers_per_100 - 1) / 1.5) * 25  # 75-50
     elif fillers_per_100 <= 5:
-        filler_score = 80.0 - ((fillers_per_100 - 2) / 3) * 20  # 80-60
-    elif fillers_per_100 <= 10:
-        filler_score = 60.0 - ((fillers_per_100 - 5) / 5) * 30  # 60-30
+        filler_score = 50.0 - ((fillers_per_100 - 2.5) / 2.5) * 25  # 50-25
+    elif fillers_per_100 <= 8:
+        filler_score = 25.0 - ((fillers_per_100 - 5) / 3) * 20  # 25-5
     else:
-        filler_score = max(0, 30.0 - ((fillers_per_100 - 10) / 10) * 30)  # 30-0
-    
-    # 3. Pause Score (Lower pause ratio is better)
-    # Optimal: < 10% pause time
-    if pause_ratio <= 0.10:
+        filler_score = max(0, 5.0 - (fillers_per_100 - 8) * 0.5)  # 5-0
+
+    # 3. Pause Score — STRICTER: only < 5% pause time gets full score
+    if pause_ratio <= 0.05:
         pause_score = 100.0
-    elif pause_ratio <= 0.20:
-        pause_score = 80.0 - ((pause_ratio - 0.10) / 0.10) * 30  # 80-50
-    elif pause_ratio <= 0.30:
-        pause_score = 50.0 - ((pause_ratio - 0.20) / 0.10) * 30  # 50-20
+    elif pause_ratio <= 0.10:
+        pause_score = 80.0 - ((pause_ratio - 0.05) / 0.05) * 30  # 80-50
+    elif pause_ratio <= 0.18:
+        pause_score = 50.0 - ((pause_ratio - 0.10) / 0.08) * 35  # 50-15
+    elif pause_ratio <= 0.28:
+        pause_score = 15.0 - ((pause_ratio - 0.18) / 0.10) * 15  # 15-0
     else:
-        pause_score = max(0, 20.0 - ((pause_ratio - 0.30) / 0.20) * 20)  # 20-0
-    
-    # 4. Hesitation Score (Lower hesitation rate is better)
-    # Optimal: < 3 hesitations per 100 words
-    if hesitation_rate <= 3:
+        pause_score = 0.0
+
+    # 4. Hesitation Score — STRICTER: only 0–1.5 per 100 words gets full score
+    if hesitation_rate <= 1.5:
         hesitation_score = 100.0
+    elif hesitation_rate <= 3:
+        hesitation_score = 80.0 - ((hesitation_rate - 1.5) / 1.5) * 30  # 80-50
     elif hesitation_rate <= 6:
-        hesitation_score = 80.0 - ((hesitation_rate - 3) / 3) * 20  # 80-60
+        hesitation_score = 50.0 - ((hesitation_rate - 3) / 3) * 30  # 50-20
     elif hesitation_rate <= 10:
-        hesitation_score = 60.0 - ((hesitation_rate - 6) / 4) * 30  # 60-30
+        hesitation_score = 20.0 - ((hesitation_rate - 6) / 4) * 20  # 20-0
     else:
-        hesitation_score = max(0, 30.0 - ((hesitation_rate - 10) / 10) * 30)  # 30-0
-    
+        hesitation_score = 0.0
+
     # 5. Overall Confidence Score (weighted average)
-    # Weights: WPM (25%), Filler (25%), Pause (20%), Hesitation (15%), Fluency (15%)
     confidence_score = (
         wpm_score * 0.25 +
         filler_score * 0.25 +
@@ -100,15 +106,15 @@ async def calculate_confidence_score(
         hesitation_score * 0.15 +
         fluency_score * 0.15
     )
-    
-    # Determine overall rating
-    if confidence_score >= 85:
+
+    # Overall rating — STRICTER thresholds (harder to get Excellent/Good)
+    if confidence_score >= 90:
         overall_rating = "Excellent"
-    elif confidence_score >= 70:
+    elif confidence_score >= 75:
         overall_rating = "Good"
-    elif confidence_score >= 55:
+    elif confidence_score >= 58:
         overall_rating = "Moderate"
-    elif confidence_score >= 40:
+    elif confidence_score >= 42:
         overall_rating = "Low"
     else:
         overall_rating = "Very Low"
@@ -195,7 +201,7 @@ Return your response as a JSON object with this exact format:
   ]
 }}
 
-If the performance is excellent (confidence score > 85), provide 1-2 positive reinforcement messages.
+If the performance is excellent (confidence score >= 90), provide 1-2 positive reinforcement messages.
 If there are multiple areas to improve, prioritize the most impactful ones.
 
 Recommendations:"""

@@ -122,11 +122,9 @@ def calculate_fluency_score(
     # Calculate hesitation rate (per 100 words)
     hesitation_rate = (hesitation_count / word_count * 100) if word_count > 0 else 0.0
     
-    # Calculate fluency score (0-100, higher is better)
-    # Penalize for pauses and hesitations
-    pause_penalty = min(pause_ratio * 50, 50)  # Max 50 points penalty for pauses
-    hesitation_penalty = min(hesitation_rate * 0.5, 30)  # Max 30 points penalty for hesitations
-    
+    # Fluency score — STRICTER: heavier penalties for pauses and hesitations
+    pause_penalty = min(pause_ratio * 80, 55)   # e.g. 5% → 4 pt, 10% → 8 pt, 20% → 16 pt, max 55
+    hesitation_penalty = min(hesitation_rate * 1.2, 35)  # e.g. 3/100w → 3.6, 10/100w → 12, max 35
     fluency_score = max(0, 100 - pause_penalty - hesitation_penalty)
     
     return {

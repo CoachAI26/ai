@@ -290,3 +290,46 @@ async def generate_improved_text(
         # Return the original text if there's an error
         return text
 
+
+# Fixed message when user's answer is not relevant to the challenge title
+OFF_TOPIC_MESSAGE = (
+    "Your response doesn't seem to address the challenge topic. "
+    "Please try again and speak about the given question or topic."
+)
+
+
+async def check_answer_relevance_to_title(title: str, user_text: str) -> bool:
+    """
+    Check if the user's transcribed answer is relevant to the challenge title/question.
+    Returns True if relevant or if we cannot determine, False if clearly off-topic.
+    """
+    if not title or not (user_text or "").strip():
+        return True
+    from config import get_openai_client, GPT_MODEL
+    client = get_openai_client()
+    prompt = f"""You are a strict judge. The challenge question/topic is:
+"{title}"
+
+The user's spoken answer (transcribed) is:
+"{user_text.strip()}"
+
+Is this answer clearly relevant to the question/topic? Does it address the same subject?
+Answer with exactly one word: YES or NO.
+- YES: the answer is about the same topic or directly responds to the question.
+- NO: the answer is about something else, unrelated, or just filler/noise."""
+    try:
+        response = client.chat.completions.create(
+            model=GPT_MODEL,
+            messages=[
+                {"role": "system", "content": "You answer only YES or NO. No explanation."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+            max_tokens=10,
+        )
+        raw = (response.choices[0].message.content or "").strip().upper()
+        return raw.startswith("YES")
+    except Exception as e:
+        print(f"Error checking relevance: {str(e)}")
+        return True  # On error, do not penalize
+

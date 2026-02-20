@@ -96,6 +96,8 @@ def test_transcribe_endpoint(audio_file_path: str):
         # Check all required fields
         required_fields = [
             "text",
+            "improved_text",
+            "tts_speech",
             "filler_words",
             "filler_count",
             "cleaned_text",

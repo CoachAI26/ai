@@ -5,8 +5,7 @@ from typing import Dict, Any
 from config import (
     get_openai_client,
     WHISPER_MODEL,
-    TRANSCRIPTION_LANGUAGE,
-    WHISPER_PROMPT
+    WHISPER_PROMPT,
 )
 
 
@@ -28,14 +27,14 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
     # Use prompt to guide Whisper to preserve filler words and disfluencies
     # Also use temperature=0.2 to make it more literal and preserve all sounds
     # Use verbose_json to get duration information
+    # Do not pass language so Whisper detects it; we then enforce English-only
     with open(audio_file_path, "rb") as audio_file:
         transcription = client.audio.transcriptions.create(
             model=WHISPER_MODEL,
             file=audio_file,
-            language=TRANSCRIPTION_LANGUAGE,
             prompt=WHISPER_PROMPT,  # Guide Whisper to preserve filler words
             temperature=0.2,  # Lower temperature for more literal transcription
-            response_format="verbose_json"  # Get duration and segments
+            response_format="verbose_json"  # Get duration and segments (includes language)
         )
     
     # Extract duration from response (support both object-like and dict-like)
@@ -73,10 +72,14 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
         segments = transcription.segments
     elif isinstance(transcription, dict) and 'segments' in transcription:
         segments = transcription['segments']
+
+    # Detected language (e.g. "english", "french") for English-only enforcement
+    detected_language = getattr(transcription, "language", None) or (isinstance(transcription, dict) and transcription.get("language")) or None
     
     return {
         "text": transcription.text,
         "duration_seconds": duration_seconds,
-        "segments": segments  # Include segments for pause analysis
+        "segments": segments,  # Include segments for pause analysis
+        "language": detected_language,
     }
 

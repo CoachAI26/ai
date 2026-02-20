@@ -6,11 +6,17 @@ import re
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form
 from models.schemas import TranscriptionResponse
 from services.transcription import transcribe_audio_file
-from services.filler_detection import detect_filler_words_with_gpt, remove_filler_words, generate_improved_text
+from services.filler_detection import (
+    detect_filler_words_with_gpt,
+    remove_filler_words,
+    generate_improved_text,
+    check_answer_relevance_to_title,
+    OFF_TOPIC_MESSAGE,
+)
 from services.wpm_calculation import calculate_wpm
 from services.pause_analysis import analyze_pauses_and_hesitations, calculate_fluency_score
 from services.confidence_analysis import calculate_confidence_score
-from services.tts import text_to_speech
+# from services.tts import text_to_speech  # TTS disabled: do not return AI voice
 
 # Supported audio formats by OpenAI Whisper
 SUPPORTED_AUDIO_FORMATS = {
@@ -125,12 +131,22 @@ async def transcribe_audio(
         with open(temp_file_path, "wb") as f:
             f.write(audio_content)
         
-        # Transcribe using OpenAI Whisper (English only)
+        # Transcribe using OpenAI Whisper (language detected for enforcement)
         transcription_result = await transcribe_audio_file(temp_file_path)
         text = transcription_result["text"]
         duration_seconds = transcription_result["duration_seconds"]
         segments = transcription_result.get("segments")
-        
+        detected_language = (transcription_result.get("language") or "").strip().lower()
+
+        # English-only: reject if user did not speak English
+        if detected_language and detected_language not in ("en", "english"):
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            raise HTTPException(
+                status_code=400,
+                detail="Please speak in English. Other languages are not accepted.",
+            )
+
         # Detect filler words using GPT
         filler_words = await detect_filler_words_with_gpt(text)
         
@@ -169,18 +185,44 @@ async def transcribe_audio(
             category=category,
             title=title,
         )
-        
-        # Generate improved text
-        improved_text = await generate_improved_text(
-            cleaned_text,
-            level=level,
-            category=category,
-            title=title,
-        )
-        
-        # Convert improved text to speech
-        tts_result = await text_to_speech(improved_text)
-        
+
+        # Check if answer is relevant to the challenge title (when title is provided)
+        off_topic = False
+        if title and title.strip():
+            is_relevant = await check_answer_relevance_to_title(title.strip(), text)
+            if not is_relevant:
+                off_topic = True
+
+        if off_topic:
+            improved_text = OFF_TOPIC_MESSAGE
+            # Lower scores when off-topic
+            penalty = 0.5
+            confidence_data = {
+                **confidence_data,
+                "confidence_score": round(min(confidence_data["confidence_score"] * penalty, 40.0), 2),
+                "wpm_score": round(min(confidence_data["wpm_score"] * penalty, 50.0), 2),
+                "filler_score": round(min(confidence_data["filler_score"] * penalty, 50.0), 2),
+                "pause_score": round(min(confidence_data["pause_score"] * penalty, 50.0), 2),
+                "hesitation_score": round(min(confidence_data["hesitation_score"] * penalty, 50.0), 2),
+                "overall_rating": "Low",
+                "recommendations": [
+                    f"Try to address the challenge topic: \"{title}\". Speak about the question or key points related to it instead of going off-topic.",
+                    "Your response was not related to the given challenge. Next time, stay on topic to get a proper score and feedback.",
+                ],
+            }
+        else:
+            # Generate improved text only when on-topic
+            improved_text = await generate_improved_text(
+                cleaned_text,
+                level=level,
+                category=category,
+                title=title,
+            )
+
+        # TTS disabled: do not return AI voice
+        # tts_result = await text_to_speech(improved_text)
+        tts_result = None
+
         # Clean up temp file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
