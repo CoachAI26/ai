@@ -101,8 +101,9 @@ async def transcribe_audio(
     - **overall_rating**: Overall rating (Excellent/Good/Moderate/Low/Very Low)
     - **recommendations**: Personalized improvement recommendations
     """
+    logger.info("---------- POST /transcribe ----------")
     logger.info(
-        "POST /transcribe | file=%s level=%s category=%s title=%s",
+        "Request | file=%s level=%s category=%s title=%s",
         file.filename or "(no name)",
         level or "-",
         category or "-",
@@ -143,7 +144,8 @@ async def transcribe_audio(
         temp_file_path = f"/tmp/{file.filename}"
         with open(temp_file_path, "wb") as f:
             f.write(audio_content)
-        
+        logger.info("Saved temp file size=%d bytes path=%s", len(audio_content), temp_file_path)
+
         # Transcribe using OpenAI Whisper (language detected for enforcement)
         transcription_result = await transcribe_audio_file(temp_file_path)
         text = transcription_result["text"]
@@ -152,12 +154,16 @@ async def transcribe_audio(
         detected_language = (transcription_result.get("language") or "").strip().lower()
         text_preview = (text[:80] + "...") if text and len(text) > 80 else (text or "")
         logger.info(
-            "Transcribed | language=%s duration=%.2fs len=%d | text=%s",
+            "Transcribed | language=%s duration=%.2fs len=%d | text_preview=%s",
             detected_language or "(none)",
             duration_seconds,
             len(text or ""),
             text_preview,
         )
+        # Full text for debug
+        _log_text = (text or "").strip()
+        if _log_text:
+            logger.info("DEBUG transcribed text [%d chars]: %s", len(_log_text), _log_text[:800] + ("..." if len(_log_text) > 800 else ""))
 
         # English-only: reject if user did not speak English
         if detected_language and detected_language not in ("en", "english"):
@@ -169,14 +175,40 @@ async def transcribe_audio(
                 detail="Please speak in English. Other languages are not accepted.",
             )
 
+        # No speech or empty transcription -> don't return fake scores
+        if not (text and text.strip()):
+            logger.warning("Rejected: no speech detected (empty transcription)")
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            raise HTTPException(
+                status_code=400,
+                detail="No speech detected in the audio. Please try again with a clear recording.",
+            )
+        if duration_seconds <= 0:
+            logger.warning("Rejected: duration=0 (cannot compute WPM)")
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            raise HTTPException(
+                status_code=400,
+                detail="Could not determine audio duration. Please try again with a valid recording.",
+            )
+
         # Detect filler words using GPT
         filler_words = await detect_filler_words_with_gpt(text)
-        
+        logger.info("Fillers | count=%d words=%s", len(filler_words), [f.get("word") for f in filler_words[:15]])
         # Remove filler words to get cleaned text
         cleaned_text = remove_filler_words(text, filler_words)
-        
+        _cleaned_preview = (cleaned_text[:150] + "...") if cleaned_text and len(cleaned_text) > 150 else (cleaned_text or "")
+        logger.info("  -> cleaned_text (preview): %s", _cleaned_preview)
+        logger.info("  -> cleaned_text (full): %s", cleaned_text or "")
         # Calculate WPM
         wpm_data = calculate_wpm(text, duration_seconds)
+        logger.info(
+            "WPM | duration=%.2fs word_count=%d wpm=%.2f",
+            wpm_data["duration_seconds"],
+            wpm_data["word_count"],
+            wpm_data["wpm"],
+        )
         
         # Analyze pauses and hesitations
         pause_data = analyze_pauses_and_hesitations(
@@ -192,7 +224,14 @@ async def transcribe_audio(
             hesitation_count=pause_data["total_hesitations"],
             word_count=wpm_data["word_count"]
         )
-        
+        logger.info(
+            "Pause/Fluency | pauses=%d hesitations=%d pause_ratio=%.3f hesitation_rate=%.2f fluency=%.2f",
+            pause_data["total_pauses"],
+            pause_data["total_hesitations"],
+            fluency_data["pause_ratio"],
+            fluency_data["hesitation_rate"],
+            fluency_data["fluency_score"],
+        )
         # Calculate confidence score (async now)
         confidence_data = await calculate_confidence_score(
             wpm=wpm_data["wpm"],
@@ -218,6 +257,7 @@ async def transcribe_audio(
 
         if off_topic:
             improved_text = OFF_TOPIC_MESSAGE
+            logger.info("Off-topic -> improved_text: [fixed message]")
             # Lower scores when off-topic
             penalty = 0.5
             confidence_data = {
@@ -241,6 +281,8 @@ async def transcribe_audio(
                 category=category,
                 title=title,
             )
+            _imp_preview = (improved_text[:200] + "...") if improved_text and len(improved_text) > 200 else (improved_text or "")
+            logger.info("Improved text (preview): %s", _imp_preview)
 
         # TTS disabled: do not return AI voice
         # tts_result = await text_to_speech(improved_text)
@@ -250,14 +292,25 @@ async def transcribe_audio(
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
+        logger.info("---------- RESPONSE (returned to client) ----------")
         logger.info(
-            "Response | confidence=%.2f rating=%s wpm=%.1f words=%d filler_count=%d",
+            "Response | confidence=%.2f rating=%s wpm=%.2f words=%d filler_count=%d "
+            "wpm_score=%.1f filler_score=%.1f pause_score=%.1f hesitation_score=%.1f",
             confidence_data["confidence_score"],
             confidence_data["overall_rating"],
             wpm_data["wpm"],
             wpm_data["word_count"],
             len(filler_words),
+            confidence_data["wpm_score"],
+            confidence_data["filler_score"],
+            confidence_data["pause_score"],
+            confidence_data["hesitation_score"],
         )
+        logger.info("  -> text (returned, full): %s", text)
+        logger.info("  -> improved_text (returned, full): %s", improved_text)
+        if confidence_data.get("recommendations"):
+            for i, rec in enumerate(confidence_data["recommendations"][:5], 1):
+                logger.info("  -> recommendation[%d]: %s", i, rec[:120] + ("..." if len(rec) > 120 else ""))
         return TranscriptionResponse(
             text=text,
             improved_text=improved_text,  # Add improved text to response
