@@ -46,11 +46,12 @@ async def test_confidence_analysis(audio_file_path: str):
         # Step 3: Detect filler words
         filler_words = await detect_filler_words_with_gpt(text)
         
-        # Step 4: Analyze pauses
+        # Step 4: Analyze pauses (hesitations from GPT filler_words only)
         pause_data = analyze_pauses_and_hesitations(
             text=text,
             segments=segments,
-            pause_threshold=0.5
+            pause_threshold=0.5,
+            filler_words=filler_words,
         )
         
         # Step 5: Calculate fluency

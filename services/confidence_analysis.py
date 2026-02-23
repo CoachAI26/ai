@@ -5,6 +5,24 @@ import json
 import re
 from typing import Dict, Any, Optional
 from config import get_openai_client, GPT_MODEL, GPT_TEMPERATURE
+from scoring_config import (
+    WPM_OPTIMAL_MIN,
+    WPM_OPTIMAL_MAX,
+    FILLERS_PER_100_FOR_FULL_SCORE,
+    PAUSE_RATIO_FOR_FULL_SCORE,
+    HESITATION_RATE_FOR_FULL_SCORE,
+    USE_FILLER_COUNT_IN_HESITATION,
+    FILLER_WEIGHT_IN_HESITATION,
+    RATING_EXCELLENT_MIN,
+    RATING_GOOD_MIN,
+    RATING_MODERATE_MIN,
+    RATING_LOW_MIN,
+    WEIGHT_WPM,
+    WEIGHT_FILLER,
+    WEIGHT_PAUSE,
+    WEIGHT_HESITATION,
+    WEIGHT_FLUENCY,
+)
 
 
 async def calculate_confidence_score(
@@ -43,78 +61,88 @@ async def calculate_confidence_score(
         - overall_rating: Text rating (Very Low, Low, Moderate, Good, Excellent)
         - recommendations: List of improvement recommendations
     """
-    # 1. WPM Score — STRICTER: narrow optimal range (130–150), harsher penalties outside
-    # Optimal: 130-150 WPM only gets full score
-    if 130 <= wpm <= 150:
+    # 1. WPM Score — configurable optimal band (narrower = stricter)
+    w_min, w_max = WPM_OPTIMAL_MIN, WPM_OPTIMAL_MAX
+    band = max(1, (w_max - w_min) / 2)  # falloff band below/above optimal
+    if w_min <= wpm <= w_max:
         wpm_score = 100.0
-    elif 115 <= wpm < 130:
-        wpm_score = 70.0 + ((wpm - 115) / 15) * 30  # 70-100
-    elif 150 < wpm <= 165:
-        wpm_score = 100.0 - ((wpm - 150) / 15) * 30  # 100-70
-    elif 100 <= wpm < 115:
-        wpm_score = 50.0 + ((wpm - 100) / 15) * 20  # 50-70
-    elif 165 < wpm <= 185:
-        wpm_score = 70.0 - ((wpm - 165) / 20) * 40  # 70-30
-    elif wpm < 100:
-        wpm_score = max(0, 50.0 - ((100 - wpm) / 40) * 50)  # 0-50
-    else:  # wpm > 185
-        wpm_score = max(0, 30.0 - ((wpm - 185) / 30) * 30)  # 0-30
+    elif w_min - band <= wpm < w_min:
+        wpm_score = 70.0 + ((wpm - (w_min - band)) / band) * 30
+    elif w_max < wpm <= w_max + band:
+        wpm_score = 100.0 - ((wpm - w_max) / band) * 30
+    elif wpm < w_min - band:
+        if wpm >= 100 and (w_min - band) > 100:
+            wpm_score = 50.0 + (wpm - 100) / ((w_min - band) - 100) * 20
+        elif wpm < 100:
+            wpm_score = max(0, 50.0 - ((100 - wpm) / 40) * 50)
+        else:
+            wpm_score = 50.0
+    else:
+        wpm_score = max(0, 30.0 - ((wpm - (w_max + band)) / 30) * 30)
 
-    # 2. Filler Score — STRICTER: only 0–1 per 100 words gets full score
+    # 2. Filler Score — full score only when fillers per 100 <= config threshold
     fillers_per_100 = (filler_count / word_count * 100) if word_count > 0 else 0
     fillers_per_100_value = fillers_per_100
-    if fillers_per_100 <= 1:
+    t = FILLERS_PER_100_FOR_FULL_SCORE
+    if fillers_per_100 <= t:
         filler_score = 100.0
-    elif fillers_per_100 <= 2.5:
-        filler_score = 75.0 - ((fillers_per_100 - 1) / 1.5) * 25  # 75-50
-    elif fillers_per_100 <= 5:
-        filler_score = 50.0 - ((fillers_per_100 - 2.5) / 2.5) * 25  # 50-25
-    elif fillers_per_100 <= 8:
-        filler_score = 25.0 - ((fillers_per_100 - 5) / 3) * 20  # 25-5
+    elif fillers_per_100 <= t + 1.5:
+        filler_score = 75.0 - ((fillers_per_100 - t) / 1.5) * 25
+    elif fillers_per_100 <= t + 4:
+        filler_score = 50.0 - ((fillers_per_100 - t - 1.5) / 2.5) * 25
+    elif fillers_per_100 <= t + 7:
+        filler_score = 25.0 - ((fillers_per_100 - t - 4) / 3) * 20
     else:
-        filler_score = max(0, 5.0 - (fillers_per_100 - 8) * 0.5)  # 5-0
+        filler_score = max(0, 5.0 - (fillers_per_100 - t - 7) * 0.5)
 
-    # 3. Pause Score — STRICTER: only < 5% pause time gets full score
-    if pause_ratio <= 0.05:
+    # 3. Pause Score — full score only when pause_ratio <= config threshold
+    p_full = PAUSE_RATIO_FOR_FULL_SCORE
+    if pause_ratio <= p_full:
         pause_score = 100.0
-    elif pause_ratio <= 0.10:
-        pause_score = 80.0 - ((pause_ratio - 0.05) / 0.05) * 30  # 80-50
-    elif pause_ratio <= 0.18:
-        pause_score = 50.0 - ((pause_ratio - 0.10) / 0.08) * 35  # 50-15
-    elif pause_ratio <= 0.28:
-        pause_score = 15.0 - ((pause_ratio - 0.18) / 0.10) * 15  # 15-0
+    elif pause_ratio <= p_full + 0.05:
+        pause_score = 80.0 - ((pause_ratio - p_full) / 0.05) * 30
+    elif pause_ratio <= p_full + 0.13:
+        pause_score = 50.0 - ((pause_ratio - p_full - 0.05) / 0.08) * 35
+    elif pause_ratio <= p_full + 0.23:
+        pause_score = 15.0 - ((pause_ratio - p_full - 0.13) / 0.10) * 15
     else:
         pause_score = 0.0
 
-    # 4. Hesitation Score — STRICTER: only 0–1.5 per 100 words gets full score
-    if hesitation_rate <= 1.5:
+    # 4. Hesitation Score — use effective rate (regex + filler_count) when config enabled
+    if USE_FILLER_COUNT_IN_HESITATION and word_count > 0:
+        effective_hesitations = total_hesitations + FILLER_WEIGHT_IN_HESITATION * filler_count
+        hesitation_rate_used = effective_hesitations / word_count * 100
+    else:
+        hesitation_rate_used = hesitation_rate
+    h_full = HESITATION_RATE_FOR_FULL_SCORE
+    if hesitation_rate_used <= h_full:
         hesitation_score = 100.0
-    elif hesitation_rate <= 3:
-        hesitation_score = 80.0 - ((hesitation_rate - 1.5) / 1.5) * 30  # 80-50
-    elif hesitation_rate <= 6:
-        hesitation_score = 50.0 - ((hesitation_rate - 3) / 3) * 30  # 50-20
-    elif hesitation_rate <= 10:
-        hesitation_score = 20.0 - ((hesitation_rate - 6) / 4) * 20  # 20-0
+    elif hesitation_rate_used <= h_full + 1.5:
+        hesitation_score = 80.0 - ((hesitation_rate_used - h_full) / 1.5) * 30
+    elif hesitation_rate_used <= h_full + 4.5:
+        hesitation_score = 50.0 - ((hesitation_rate_used - h_full - 1.5) / 3) * 30
+    elif hesitation_rate_used <= h_full + 8.5:
+        hesitation_score = 20.0 - ((hesitation_rate_used - h_full - 4.5) / 4) * 20
     else:
         hesitation_score = 0.0
 
-    # 5. Overall Confidence Score (weighted average)
+    # 5. Overall Confidence Score (weighted average from config)
     confidence_score = (
-        wpm_score * 0.25 +
-        filler_score * 0.25 +
-        pause_score * 0.20 +
-        hesitation_score * 0.15 +
-        fluency_score * 0.15
+        wpm_score * WEIGHT_WPM +
+        filler_score * WEIGHT_FILLER +
+        pause_score * WEIGHT_PAUSE +
+        hesitation_score * WEIGHT_HESITATION +
+        fluency_score * WEIGHT_FLUENCY
     )
 
-    # Overall rating — STRICTER thresholds (harder to get Excellent/Good)
-    if confidence_score >= 90:
+    # Overall rating — configurable bands
+    if confidence_score >= RATING_EXCELLENT_MIN:
         overall_rating = "Excellent"
-    elif confidence_score >= 75:
+    elif confidence_score >= RATING_GOOD_MIN:
         overall_rating = "Good"
-    elif confidence_score >= 58:
+    elif confidence_score >= RATING_MODERATE_MIN:
         overall_rating = "Moderate"
-    elif confidence_score >= 42:
+    elif confidence_score >= RATING_LOW_MIN:
         overall_rating = "Low"
     else:
         overall_rating = "Very Low"

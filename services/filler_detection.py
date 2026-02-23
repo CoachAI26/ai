@@ -10,34 +10,27 @@ from config import (
     GPT_TEMPERATURE
 )
 
-# Filler word detection prompt for GPT
-FILLER_WORD_DETECTION_PROMPT = """You are an expert at identifying filler words and disfluencies in spoken English. Your task is to analyze the transcribed text and identify ALL filler words, hesitations, and unnecessary words that should be removed for clarity.
+# Filler word detection prompt for GPT — high-accuracy, no regex; GPT is the single source.
+FILLER_WORD_DETECTION_PROMPT = """You are an expert at identifying filler words and disfluencies in spoken English. Your task is to analyze the transcribed text and identify ALL filler words, hesitations, and unnecessary words with MAXIMUM ACCURACY.
 
 Filler words include:
-- Hesitation sounds: "um", "uh", "er", "erm", "ah", "hmm" - ALWAYS mark these as fillers
-- Filler phrases used as pauses: "like", "you know", "I mean", "sort of", "kind of" (only when used as fillers)
-- Unnecessary qualifiers when used as fillers: "basically", "actually", "literally" (when not adding meaning)
-- Repetitive confirmations: "right", "okay", "yeah" (when used as fillers, not as actual responses)
-- Thinking pauses: "well", "so" (when used to stall, not to transition meaningfully)
+- Hesitation sounds: "um", "uh", "er", "erm", "ah", "hmm", "umm", "uhh" — mark EVERY occurrence, no exceptions
+- Filler phrases when used as fillers: "like", "you know", "I mean", "sort of", "kind of"
+- Unnecessary qualifiers when used as fillers: "basically", "actually", "literally" (when they add no meaning)
+- Repetitive fillers: "right", "okay", "yeah" when used to stall (not as real answers)
+- Thinking stalls: "well", "so" when used only to buy time, not to transition meaningfully
 
-CRITICAL RULES:
-1. ALWAYS mark ALL hesitation sounds (um, uh, er, erm, ah, hmm) - these are ALWAYS fillers regardless of context
-2. Find EVERY occurrence of hesitation sounds in the text - do not miss any!
-3. DO NOT mark words that have actual meaning in context:
-   - "you know" when used to check understanding or emphasize a point (e.g., "but, you know, I try my best")
-   - "like" when comparing or giving examples (e.g., "shirt like this")
-   - "right" when confirming a fact or asking for agreement
-   - "well" when starting a thoughtful response or transition
-   - "actually" when correcting or providing accurate information
-4. Be precise - context matters for phrases, but hesitation sounds are ALWAYS fillers
-5. Include the exact word/phrase as it appears in the text (preserve case)
-6. Find the character position (index) where EACH filler word starts in the original text
-7. Count carefully - if there are multiple "um" or "uh" in the text, mark ALL of them
-8. Be thorough - scan the entire text character by character to find all filler words
+CRITICAL RULES FOR MAXIMUM ACCURACY:
+1. Scan the text character by character from start to end. Do not skip any part.
+2. For hesitation sounds (um, uh, er, erm, ah, hmm): mark EVERY single occurrence. If "um" appears 5 times, output 5 entries with correct positions.
+3. "position" must be the exact character index (0-based) where the filler STARTS in the original text. Count spaces and punctuation.
+4. "length" must be the exact number of characters of that filler as it appears in the text.
+5. Preserve the exact "word" as written (case, spelling). Use the substring from text[position:position+length].
+6. Do NOT mark words that have real meaning in context: "like" in "something like that", "right" when confirming, "well" when starting an answer, "actually" when correcting.
+7. When in doubt whether a word is a filler in context, prefer marking it if it is a hesitation sound (um/uh/er/erm/ah/hmm); for phrases (like, you know) only mark when clearly used as filler.
+8. Output every filler once; no duplicates for the same span; no overlapping spans.
 
-IMPORTANT: You MUST find ALL occurrences of hesitation sounds. If the text contains multiple "um" or "uh", you MUST mark ALL of them, not just one!
-
-Example: If text is "um I was um in the mall um today", you should find THREE "um" words, not just one!
+Example: For "um I was um in the mall um today" you must return THREE entries for "um" at positions 0, 9, and 25 (or whatever the exact indices are in the string).
 
 Return your response as a JSON object with this exact format:
 {
@@ -66,20 +59,6 @@ Text to analyze:
 """
 
 
-def _regex_hesitation_fillers(text: str) -> List[Dict[str, Any]]:
-    """
-    Deterministic fallback: find *all* hesitation sounds in English text.
-    This guarantees we never miss repeated 'um/uh/er/erm/ah/hmm' even if GPT does.
-    """
-    # word-boundaries + allow punctuation around tokens (e.g., "um," / "(uh)")
-    pattern = re.compile(r"\b(um+|uh+|er+|erm+|ah+|hmm+)\b", re.IGNORECASE)
-    out: List[Dict[str, Any]] = []
-    for m in pattern.finditer(text):
-        token = m.group(0)
-        out.append({"word": token, "position": m.start(), "length": len(token)})
-    return out
-
-
 async def detect_filler_words_with_gpt(text: str) -> List[Dict[str, Any]]:
     """
     Detect filler words using GPT with high accuracy
@@ -102,7 +81,7 @@ async def detect_filler_words_with_gpt(text: str) -> List[Dict[str, Any]]:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an expert at identifying filler words in spoken English. You MUST find ALL hesitation sounds (um, uh, er, etc.) in the text. Scan the entire text carefully and mark EVERY occurrence. Always return valid JSON only, no additional text."
+                    "content": "You are the only source of filler detection. You MUST find every filler with exact character positions. For um/uh/er/erm/ah/hmm mark every single occurrence. Be precise: position = 0-based start index in the text, length = character length of the filler. Return only valid JSON, no extra text."
                 },
                 {
                     "role": "user",
@@ -166,17 +145,7 @@ async def detect_filler_words_with_gpt(text: str) -> List[Dict[str, Any]]:
                             "length": length
                         })
 
-        # Deterministic merge: always include all hesitation sounds found via regex
-        # (GPT sometimes returns only the first occurrence.)
-        regex_fillers = _regex_hesitation_fillers(text)
-        existing_positions = {(f["position"], f["length"]) for f in validated_fillers}
-        for f in regex_fillers:
-            key = (f["position"], f["length"])
-            if key not in existing_positions:
-                validated_fillers.append(f)
-                existing_positions.add(key)
-        
-        # Sort by position and remove overlaps
+        # Single source: GPT only (no regex merge). Sort by position and remove overlaps
         validated_fillers = sorted(validated_fillers, key=lambda x: x['position'])
         non_overlapping = []
         last_end = -1

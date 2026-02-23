@@ -210,19 +210,20 @@ async def transcribe_audio(
             wpm_data["wpm"],
         )
         
-        # Analyze pauses and hesitations
+        # Analyze pauses (from segments) and hesitations (from GPT filler_words only)
         pause_data = analyze_pauses_and_hesitations(
             text=text,
             segments=segments,
-            pause_threshold=0.5
+            filler_words=filler_words,
         )
         
-        # Calculate fluency score
+        # Calculate fluency score (filler_count used when scoring_config.USE_FILLER_COUNT_IN_HESITATION)
         fluency_data = calculate_fluency_score(
             total_duration=duration_seconds,
             total_pause_time=pause_data["total_pause_time"],
             hesitation_count=pause_data["total_hesitations"],
-            word_count=wpm_data["word_count"]
+            word_count=wpm_data["word_count"],
+            filler_count=len(filler_words),
         )
         logger.info(
             "Pause/Fluency | pauses=%d hesitations=%d pause_ratio=%.3f hesitation_rate=%.2f fluency=%.2f",

@@ -1,37 +1,41 @@
 """
-Pause and Hesitation analysis service
+Pause and Hesitation analysis service.
+Hesitation/filler counts come from GPT only (filler_words); no regex.
 """
 from typing import List, Dict, Any, Optional
-import re
+
+try:
+    from scoring_config import PAUSE_THRESHOLD_SEC
+except ImportError:
+    PAUSE_THRESHOLD_SEC = 0.5
 
 
 def analyze_pauses_and_hesitations(
     text: str,
     segments: Optional[List[Dict[str, Any]]] = None,
-    pause_threshold: float = 0.5
+    pause_threshold: Optional[float] = None,
+    filler_words: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
-    Analyze pauses and hesitations in transcribed speech
+    Analyze pauses (from Whisper segments) and hesitations (from GPT filler_words only).
     
     Args:
-        text: Transcribed text
+        text: Transcribed text (unused when filler_words provided; kept for API compat)
         segments: List of segments from Whisper with timestamps (optional)
-        pause_threshold: Minimum duration in seconds to consider as a pause (default: 0.5s)
+        pause_threshold: Minimum duration in seconds to consider as a pause (default: from scoring_config)
+        filler_words: List of filler items from GPT (each with "word"); used for total_hesitations and hesitation_words. If None, hesitations are 0.
         
     Returns:
-        Dictionary with:
-        - total_pauses: Total number of pauses detected
-        - total_hesitations: Total number of hesitation sounds (um, uh, etc.)
-        - pause_durations: List of pause durations in seconds
-        - average_pause_duration: Average pause duration in seconds
-        - total_pause_time: Total time spent in pauses
-        - hesitation_words: List of detected hesitation words
+        Dictionary with total_pauses, total_hesitations, pause_durations, etc.
     """
-    # Detect hesitation sounds in text
-    hesitation_pattern = re.compile(r'\b(um+|uh+|er+|erm+|ah+|hmm+)\b', re.IGNORECASE)
-    hesitation_matches = list(hesitation_pattern.finditer(text))
-    hesitation_words = [match.group(0) for match in hesitation_matches]
+    if filler_words:
+        total_hesitations = len(filler_words)
+        hesitation_words = [f.get("word", "") for f in filler_words if isinstance(f, dict)]
+    else:
+        total_hesitations = 0
+        hesitation_words = []
     
+    threshold = pause_threshold if pause_threshold is not None else PAUSE_THRESHOLD_SEC
     # Analyze pauses from segments if available
     pause_durations = []
     total_pause_time = 0.0
@@ -48,13 +52,12 @@ def analyze_pauses_and_hesitations(
             
             if current_end is not None and next_start is not None:
                 pause_duration = next_start - current_end
-                if pause_duration >= pause_threshold:
+                if pause_duration >= threshold:
                     pause_durations.append(pause_duration)
                     total_pause_time += pause_duration
     
-    # Calculate statistics
+    # Calculate statistics (total_hesitations already set from filler_words above)
     total_pauses = len(pause_durations)
-    total_hesitations = len(hesitation_words)
     average_pause_duration = (
         sum(pause_durations) / len(pause_durations) 
         if pause_durations else 0.0
@@ -67,7 +70,7 @@ def analyze_pauses_and_hesitations(
         "average_pause_duration": round(average_pause_duration, 2),
         "total_pause_time": round(total_pause_time, 2),
         "hesitation_words": hesitation_words,
-        "pause_threshold_used": pause_threshold
+        "pause_threshold_used": threshold,
     }
 
 
@@ -92,23 +95,30 @@ def calculate_fluency_score(
     total_duration: float,
     total_pause_time: float,
     hesitation_count: int,
-    word_count: int
+    word_count: int,
+    filler_count: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    Calculate fluency score based on pauses and hesitations
-    
-    Args:
-        total_duration: Total speaking duration in seconds
-        total_pause_time: Total time spent in pauses
-        hesitation_count: Number of hesitation sounds
-        word_count: Total number of words
-        
-    Returns:
-        Dictionary with fluency metrics:
-        - fluency_score: Score from 0-100 (higher is better)
-        - pause_ratio: Ratio of pause time to total time
-        - hesitation_rate: Hesitations per 100 words
+    Calculate fluency score based on pauses and hesitations.
+    Hesitation count comes from GPT (filler_words). Uses scoring_config for penalties.
     """
+    try:
+        from scoring_config import (
+            FLUENCY_PAUSE_PENALTY_PER_RATIO,
+            FLUENCY_PAUSE_PENALTY_CAP,
+            FLUENCY_HESITATION_PENALTY_PER_RATE,
+            FLUENCY_HESITATION_PENALTY_CAP,
+            USE_FILLER_COUNT_IN_HESITATION,
+            FILLER_WEIGHT_IN_HESITATION,
+        )
+    except ImportError:
+        FLUENCY_PAUSE_PENALTY_PER_RATIO = 80
+        FLUENCY_PAUSE_PENALTY_CAP = 55
+        FLUENCY_HESITATION_PENALTY_PER_RATE = 1.2
+        FLUENCY_HESITATION_PENALTY_CAP = 35
+        USE_FILLER_COUNT_IN_HESITATION = False
+        FILLER_WEIGHT_IN_HESITATION = 0.6
+
     if total_duration == 0:
         return {
             "fluency_score": 0.0,
@@ -116,15 +126,15 @@ def calculate_fluency_score(
             "hesitation_rate": 0.0
         }
     
-    # Calculate pause ratio
     pause_ratio = total_pause_time / total_duration if total_duration > 0 else 0.0
+    if USE_FILLER_COUNT_IN_HESITATION and filler_count is not None and word_count > 0:
+        effective_hesitations = hesitation_count + FILLER_WEIGHT_IN_HESITATION * filler_count
+        hesitation_rate = effective_hesitations / word_count * 100
+    else:
+        hesitation_rate = (hesitation_count / word_count * 100) if word_count > 0 else 0.0
     
-    # Calculate hesitation rate (per 100 words)
-    hesitation_rate = (hesitation_count / word_count * 100) if word_count > 0 else 0.0
-    
-    # Fluency score — STRICTER: heavier penalties for pauses and hesitations
-    pause_penalty = min(pause_ratio * 80, 55)   # e.g. 5% → 4 pt, 10% → 8 pt, 20% → 16 pt, max 55
-    hesitation_penalty = min(hesitation_rate * 1.2, 35)  # e.g. 3/100w → 3.6, 10/100w → 12, max 35
+    pause_penalty = min(pause_ratio * FLUENCY_PAUSE_PENALTY_PER_RATIO, FLUENCY_PAUSE_PENALTY_CAP)
+    hesitation_penalty = min(hesitation_rate * FLUENCY_HESITATION_PENALTY_PER_RATE, FLUENCY_HESITATION_PENALTY_CAP)
     fluency_score = max(0, 100 - pause_penalty - hesitation_penalty)
     
     return {
