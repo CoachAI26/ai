@@ -54,7 +54,7 @@ async def test_filler_word_detection(text: str):
     print("🔄 Detecting filler words with GPT-4o...")
     
     try:
-        filler_words = await detect_filler_words_with_gpt(text)
+        filler_words, _ = await detect_filler_words_with_gpt(text)
         
         print(f"\n✅ Detection complete!")
         print(f"📊 Found {len(filler_words)} filler word(s)\n")

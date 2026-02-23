@@ -3,7 +3,7 @@ Filler word detection service using GPT
 """
 import re
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from config import (
     get_openai_client,
     GPT_MODEL,
@@ -32,17 +32,15 @@ CRITICAL RULES FOR MAXIMUM ACCURACY:
 
 Example: For "um I was um in the mall um today" you must return THREE entries for "um" at positions 0, 9, and 25 (or whatever the exact indices are in the string).
 
+Also count the total number of words in the text (standard word count: split by whitespace, count each token; e.g. "I'd" is one word, "wasn't" is one word). Include this as "word_count" in your JSON.
+
 Return your response as a JSON object with this exact format:
 {
+  "word_count": 42,
   "fillers": [
     {
       "word": "um",
       "position": 15,
-      "length": 2
-    },
-    {
-      "word": "um",
-      "position": 45,
       "length": 2
     },
     {
@@ -53,22 +51,20 @@ Return your response as a JSON object with this exact format:
   ]
 }
 
-If no filler words are found, return: {"fillers": []}
+If no filler words are found, return: {"word_count": <number>, "fillers": []}
+Always include "word_count" as an integer.
 
 Text to analyze:
 """
 
 
-async def detect_filler_words_with_gpt(text: str) -> List[Dict[str, Any]]:
+async def detect_filler_words_with_gpt(text: str) -> Tuple[List[Dict[str, Any]], int]:
     """
-    Detect filler words using GPT with high accuracy
-    Only for English text
-    
-    Args:
-        text: The transcribed text to analyze
-        
+    Detect filler words and get word count using GPT.
+    Only for English text.
+
     Returns:
-        List of filler words with their positions and lengths
+        (list of filler words with positions/lengths, word_count from GPT)
     """
     try:
         # Create prompt with the text
@@ -81,7 +77,7 @@ async def detect_filler_words_with_gpt(text: str) -> List[Dict[str, Any]]:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are the only source of filler detection. You MUST find every filler with exact character positions. For um/uh/er/erm/ah/hmm mark every single occurrence. Be precise: position = 0-based start index in the text, length = character length of the filler. Return only valid JSON, no extra text."
+                    "content": "You are the only source of filler detection and word count. You MUST find every filler with exact character positions and include word_count (total words in the text, split by whitespace). Return only valid JSON with word_count and fillers, no extra text."
                 },
                 {
                     "role": "user",
@@ -96,9 +92,16 @@ async def detect_filler_words_with_gpt(text: str) -> List[Dict[str, Any]]:
         response_content = response.choices[0].message.content.strip()
         
         # Try to parse as JSON
+        word_count_from_gpt: Optional[int] = None
         try:
             parsed = json.loads(response_content)
-            
+            if isinstance(parsed, dict):
+                word_count_from_gpt = parsed.get("word_count")
+                if word_count_from_gpt is not None:
+                    try:
+                        word_count_from_gpt = int(word_count_from_gpt)
+                    except (TypeError, ValueError):
+                        word_count_from_gpt = None
             # Handle both direct array and wrapped object
             if isinstance(parsed, list):
                 filler_words = parsed
@@ -107,12 +110,12 @@ async def detect_filler_words_with_gpt(text: str) -> List[Dict[str, Any]]:
             elif isinstance(parsed, dict) and "filler_words" in parsed:
                 filler_words = parsed["filler_words"]
             else:
-                # Try to find array in the response
                 filler_words = []
-                for key, value in parsed.items():
-                    if isinstance(value, list):
-                        filler_words = value
-                        break
+                if isinstance(parsed, dict):
+                    for key, value in parsed.items():
+                        if key != "word_count" and isinstance(value, list):
+                            filler_words = value
+                            break
         except json.JSONDecodeError:
             # If JSON parsing fails, try to extract JSON from markdown code blocks
             json_match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', response_content, re.DOTALL)
@@ -154,13 +157,20 @@ async def detect_filler_words_with_gpt(text: str) -> List[Dict[str, Any]]:
             if filler['position'] >= last_end:
                 non_overlapping.append(filler)
                 last_end = filler['position'] + filler['length']
-        
-        return non_overlapping
-    
+
+        # Use GPT word_count if valid; otherwise fallback to local count
+        if word_count_from_gpt is not None and word_count_from_gpt >= 0:
+            word_count = word_count_from_gpt
+        else:
+            from services.wpm_calculation import count_words
+            word_count = count_words(text)
+
+        return (non_overlapping, word_count)
+
     except Exception as e:
-        # If GPT fails, return empty list (fallback)
         print(f"Error in GPT filler word detection: {str(e)}")
-        return []
+        from services.wpm_calculation import count_words
+        return ([], count_words(text) if text else 0)
 
 
 def remove_filler_words(text: str, filler_positions: List[Dict[str, Any]]) -> str:

@@ -43,8 +43,8 @@ async def test_confidence_analysis(audio_file_path: str):
         # Step 2: Calculate WPM
         wpm_data = calculate_wpm(text, duration_seconds)
         
-        # Step 3: Detect filler words
-        filler_words = await detect_filler_words_with_gpt(text)
+        # Step 3: Detect filler words and word count (GPT)
+        filler_words, _word_count_gpt = await detect_filler_words_with_gpt(text)
         
         # Step 4: Analyze pauses (hesitations from GPT filler_words only)
         pause_data = analyze_pauses_and_hesitations(

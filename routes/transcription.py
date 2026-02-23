@@ -193,16 +193,18 @@ async def transcribe_audio(
                 detail="Could not determine audio duration. Please try again with a valid recording.",
             )
 
-        # Detect filler words using GPT
-        filler_words = await detect_filler_words_with_gpt(text)
-        logger.info("Fillers | count=%d words=%s", len(filler_words), [f.get("word") for f in filler_words[:15]])
+        # Detect filler words and word count using GPT
+        filler_words, word_count_gpt = await detect_filler_words_with_gpt(text)
+        logger.info("Fillers | count=%d word_count(gpt)=%d words=%s", len(filler_words), word_count_gpt, [f.get("word") for f in filler_words[:15]])
         # Remove filler words to get cleaned text
         cleaned_text = remove_filler_words(text, filler_words)
         _cleaned_preview = (cleaned_text[:150] + "...") if cleaned_text and len(cleaned_text) > 150 else (cleaned_text or "")
         logger.info("  -> cleaned_text (preview): %s", _cleaned_preview)
         logger.info("  -> cleaned_text (full): %s", cleaned_text or "")
-        # Calculate WPM
+        # WPM: use word_count from GPT, duration from Whisper
         wpm_data = calculate_wpm(text, duration_seconds)
+        wpm_data["word_count"] = word_count_gpt
+        wpm_data["wpm"] = round((word_count_gpt / duration_seconds) * 60, 2) if duration_seconds > 0 else 0.0
         logger.info(
             "WPM | duration=%.2fs word_count=%d wpm=%.2f",
             wpm_data["duration_seconds"],
