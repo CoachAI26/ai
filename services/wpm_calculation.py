@@ -7,17 +7,18 @@ from typing import Dict, Any
 
 def count_words(text: str) -> int:
     """
-    Count words in text
-    
-    Args:
-        text: Input text
-        
-    Returns:
-        Number of words
+    Count words in text. Uses whitespace tokenization so contractions (I'd, wasn't)
+    count as one word and the result matches typical "word count" expectations.
     """
-    # Remove extra whitespace and split by spaces
-    words = re.findall(r'\b\w+\b', text)
-    return len(words)
+    if not text or not isinstance(text, str):
+        return 0
+    # Normalize: collapse all whitespace (space, newline, tab, Unicode) to single space
+    normalized = re.sub(r"\s+", " ", text.strip())
+    if not normalized:
+        return 0
+    # Split by space; count non-empty tokens (each token = one "word")
+    tokens = [t for t in normalized.split(" ") if t]
+    return len(tokens)
 
 
 def calculate_wpm(text: str, duration_seconds: float) -> Dict[str, Any]:
