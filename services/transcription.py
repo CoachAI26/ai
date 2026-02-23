@@ -6,6 +6,7 @@ from config import (
     get_openai_client,
     WHISPER_MODEL,
     WHISPER_PROMPT,
+    TRANSCRIPTION_LANGUAGE,
 )
 
 
@@ -24,17 +25,16 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
     """
     client = get_openai_client()
     
-    # Use prompt to guide Whisper to preserve filler words and disfluencies
-    # Also use temperature=0.2 to make it more literal and preserve all sounds
-    # Use verbose_json to get duration information
-    # Do not pass language so Whisper detects it; we then enforce English-only
+    # Force language so Whisper does not misdetect (e.g. English detected as Welsh).
+    # We only accept English; TRANSCRIPTION_LANGUAGE is "en" in config.
     with open(audio_file_path, "rb") as audio_file:
         transcription = client.audio.transcriptions.create(
             model=WHISPER_MODEL,
             file=audio_file,
-            prompt=WHISPER_PROMPT,  # Guide Whisper to preserve filler words
-            temperature=0.2,  # Lower temperature for more literal transcription
-            response_format="verbose_json"  # Get duration and segments (includes language)
+            language=TRANSCRIPTION_LANGUAGE,  # "en" = force English, no auto-detect
+            prompt=WHISPER_PROMPT,
+            temperature=0.2,
+            response_format="verbose_json",
         )
     
     # Extract segments (for pause analysis and fallback duration)
