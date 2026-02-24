@@ -275,7 +275,7 @@ async def generate_improved_text(
                 {"role": "user", "content": f"{prompt}{context_block}\n\n{text}"}
             ],
             temperature=0.3,
-            max_tokens=2000
+            max_completion_tokens=2000
         )
         
         improved_text = response.choices[0].message.content.strip()
@@ -331,7 +331,7 @@ Answer with exactly one word: YES or NO.
                 {"role": "user", "content": prompt},
             ],
             temperature=0.0,
-            max_tokens=10,
+            max_completion_tokens=10,
         )
         raw = (response.choices[0].message.content or "").strip().upper()
         return raw.startswith("YES")
