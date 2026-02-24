@@ -7,8 +7,8 @@ Tune these to make scores stricter so "bad" speech does not get 100 everywhere.
 # Pause detection (pause_analysis.py)
 # -----------------------------------------------------------------------------
 # Minimum gap between Whisper segments (seconds) to count as a pause.
-# Lower = more short hesitations count as pauses (stricter).
-PAUSE_THRESHOLD_SEC = 0.35
+# 0.1 = detect even tenth-of-second pauses (stronger detection).
+PAUSE_THRESHOLD_SEC = 0.1
 
 # -----------------------------------------------------------------------------
 # WPM score (confidence_analysis.py)

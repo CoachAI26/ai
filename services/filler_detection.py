@@ -10,7 +10,13 @@ from config import (
     GPT_TEMPERATURE
 )
 
-# Filler word detection prompt for GPT — high-accuracy, no regex; GPT is the single source.
+# Regex pattern to catch hesitation sounds (um, uh, er, erm, ah, hmm) — used to strengthen GPT results
+HESITATION_REGEX = re.compile(
+    r"\b(um+|uh+|u+h+|er+|erm+|ah+|hmm+|mhm+|eh+|eh+m+)\b",
+    re.IGNORECASE,
+)
+
+# Filler word detection prompt for GPT — high-accuracy; regex strengthens hesitation detection.
 FILLER_WORD_DETECTION_PROMPT = """You are an expert at identifying filler words and disfluencies in spoken English. Your task is to analyze the transcribed text and identify ALL filler words, hesitations, and unnecessary words with MAXIMUM ACCURACY.
 
 Filler words include:
@@ -22,7 +28,7 @@ Filler words include:
 
 CRITICAL RULES FOR MAXIMUM ACCURACY:
 1. Scan the text character by character from start to end. Do not skip any part.
-2. For hesitation sounds (um, uh, er, erm, ah, hmm): mark EVERY single occurrence. If "um" appears 5 times, output 5 entries with correct positions.
+2. For hesitation sounds (um, uh, er, erm, ah, hmm, umm, uhh): mark EVERY single occurrence, including repeated letters (e.g. "umm", "uhh"). If "um" appears 5 times, output 5 entries with correct positions.
 3. "position" must be the exact character index (0-based) where the filler STARTS in the original text. Count spaces and punctuation.
 4. "length" must be the exact number of characters of that filler as it appears in the text.
 5. Preserve the exact "word" as written (case, spelling). Use the substring from text[position:position+length].
@@ -148,15 +154,29 @@ async def detect_filler_words_with_gpt(text: str) -> Tuple[List[Dict[str, Any]],
                             "length": length
                         })
 
-        # Single source: GPT only (no regex merge). Sort by position and remove overlaps
-        validated_fillers = sorted(validated_fillers, key=lambda x: x['position'])
+        # Strengthen: add regex-detected hesitation sounds (um/uh/er/erm/ah/hmm) that GPT may have missed
+        def _overlaps(span_start: int, span_end: int, existing: List[Dict[str, Any]]) -> bool:
+            for f in existing:
+                e_start, e_end = f["position"], f["position"] + f.get("length", 0)
+                if not (span_end <= e_start or span_start >= e_end):
+                    return True
+            return False
+
+        for m in HESITATION_REGEX.finditer(text):
+            pos, length = m.start(), len(m.group(0))
+            if not _overlaps(pos, pos + length, validated_fillers):
+                validated_fillers.append({"word": m.group(0), "position": pos, "length": length})
+
+        # Sort by position and remove overlaps (keep first occurrence when overlapping)
+        validated_fillers = sorted(validated_fillers, key=lambda x: x["position"])
         non_overlapping = []
         last_end = -1
-        
         for filler in validated_fillers:
-            if filler['position'] >= last_end:
+            start = filler["position"]
+            end = start + filler.get("length", len(filler.get("word", "")))
+            if start >= last_end:
                 non_overlapping.append(filler)
-                last_end = filler['position'] + filler['length']
+                last_end = end
 
         # Use GPT word_count if valid; otherwise fallback to local count
         if word_count_from_gpt is not None and word_count_from_gpt >= 0:

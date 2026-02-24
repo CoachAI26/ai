@@ -63,12 +63,13 @@ def analyze_pauses_and_hesitations(
         if pause_durations else 0.0
     )
     
+    # Report pause durations in tenths of a second (0.1) for finer detail
     return {
         "total_pauses": total_pauses,
         "total_hesitations": total_hesitations,
-        "pause_durations": [round(d, 2) for d in pause_durations],
-        "average_pause_duration": round(average_pause_duration, 2),
-        "total_pause_time": round(total_pause_time, 2),
+        "pause_durations": [round(d, 1) for d in pause_durations],
+        "average_pause_duration": round(average_pause_duration, 1),
+        "total_pause_time": round(total_pause_time, 1),
         "hesitation_words": hesitation_words,
         "pause_threshold_used": threshold,
     }

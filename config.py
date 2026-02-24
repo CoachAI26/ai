@@ -15,7 +15,7 @@ if not API_KEY:
 
 # Model configurations
 WHISPER_MODEL = "whisper-1"
-GPT_MODEL = "gpt-4o"
+GPT_MODEL = "gpt-5.2"
 GPT_TEMPERATURE = 0.1
 
 # Language settings
