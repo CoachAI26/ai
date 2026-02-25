@@ -10,6 +10,26 @@ from config import (
     GPT_TEMPERATURE
 )
 
+
+# Cache which param name the OpenAI client accepts (old client = max_tokens, new = max_completion_tokens)
+_max_tokens_param: Optional[str] = None
+
+
+def _max_tokens_kwargs(n: int) -> dict:
+    """Return kwargs for token limit: works with both old (max_tokens) and new (max_completion_tokens) OpenAI client."""
+    global _max_tokens_param
+    if _max_tokens_param is not None:
+        return {_max_tokens_param: n}
+    import inspect
+    client = get_openai_client()
+    sig = inspect.signature(client.chat.completions.create)
+    if "max_completion_tokens" in sig.parameters:
+        _max_tokens_param = "max_completion_tokens"
+    else:
+        _max_tokens_param = "max_tokens"
+    return {_max_tokens_param: n}
+
+
 # Regex pattern to catch hesitation sounds (um, uh, er, erm, ah, hmm) — used to strengthen GPT results
 HESITATION_REGEX = re.compile(
     r"\b(um+|uh+|u+h+|er+|erm+|ah+|hmm+|mhm+|eh+|eh+m+)\b",
@@ -275,7 +295,7 @@ async def generate_improved_text(
                 {"role": "user", "content": f"{prompt}{context_block}\n\n{text}"}
             ],
             temperature=0.3,
-            max_completion_tokens=2000
+            **_max_tokens_kwargs(2000),
         )
         
         improved_text = response.choices[0].message.content.strip()
@@ -331,7 +351,7 @@ Answer with exactly one word: YES or NO.
                 {"role": "user", "content": prompt},
             ],
             temperature=0.0,
-            max_completion_tokens=10,
+            **_max_tokens_kwargs(10),
         )
         raw = (response.choices[0].message.content or "").strip().upper()
         return raw.startswith("YES")
