@@ -30,57 +30,76 @@ def _max_tokens_kwargs(n: int) -> dict:
     return {_max_tokens_param: n}
 
 
-# Regex pattern to catch hesitation sounds (um, uh, er, erm, ah, hmm) — used to strengthen GPT results
+# Regex pattern to catch hesitation sounds — comprehensive list with multiple variations
 HESITATION_REGEX = re.compile(
-    r"\b(um+|uh+|u+h+|er+|erm+|ah+|hmm+|mhm+|eh+|eh+m+)\b",
+    r"\b(um+|uh+|u+h+|uh-huh|er+|erm+|ah+|ahhh+|hmm+|mm-hmm|mhm+|eh+|eh+m+|mm+|uh-huh|um-um|uh-uh)\b",
     re.IGNORECASE,
 )
 
-# Filler word detection prompt for GPT — high-accuracy; regex strengthens hesitation detection.
-FILLER_WORD_DETECTION_PROMPT = """You are an expert at identifying filler words and disfluencies in spoken English. Your task is to analyze the transcribed text and identify ALL filler words, hesitations, and unnecessary words with MAXIMUM ACCURACY.
+# Filler word detection prompt for GPT — MAXIMUM sensitivity to hesitation sounds
+FILLER_WORD_DETECTION_PROMPT = """ABSOLUTE MISSION: Identify EVERY SINGLE filler word and hesitation with ZERO TOLERANCE for misses.
 
-Filler words include:
-- Hesitation sounds: "um", "uh", "er", "erm", "ah", "hmm", "umm", "uhh" — mark EVERY occurrence, no exceptions
-- Filler phrases when used as fillers: "like", "you know", "I mean", "sort of", "kind of"
-- Unnecessary qualifiers when used as fillers: "basically", "actually", "literally" (when they add no meaning)
-- Repetitive fillers: "right", "okay", "yeah" when used to stall (not as real answers)
-- Thinking stalls: "well", "so" when used only to buy time, not to transition meaningfully
+You are a forensic speech analyzer. This is real spoken English with natural hesitations. Your ONLY job: find ALL fillers.
 
-CRITICAL RULES FOR MAXIMUM ACCURACY:
-1. Scan the text character by character from start to end. Do not skip any part.
-2. For hesitation sounds (um, uh, er, erm, ah, hmm, umm, uhh): mark EVERY single occurrence, including repeated letters (e.g. "umm", "uhh"). If "um" appears 5 times, output 5 entries with correct positions.
-3. "position" must be the exact character index (0-based) where the filler STARTS in the original text. Count spaces and punctuation.
-4. "length" must be the exact number of characters of that filler as it appears in the text.
-5. Preserve the exact "word" as written (case, spelling). Use the substring from text[position:position+length].
-6. Do NOT mark words that have real meaning in context: "like" in "something like that", "right" when confirming, "well" when starting an answer, "actually" when correcting.
-7. When in doubt whether a word is a filler in context, prefer marking it if it is a hesitation sound (um/uh/er/erm/ah/hmm); for phrases (like, you know) only mark when clearly used as filler.
-8. Output every filler once; no duplicates for the same span; no overlapping spans.
+==== TIER 1: HESITATION SOUNDS (NON-NEGOTIABLE — NEVER EVER MISS THESE) ====
+Mark EVERY. SINGLE. OCCURRENCE of:
+um, uh, ur, eh, ah, ah-ha, hmm, hm, mm, mm-hmm, uh-huh, huh, em, erm, er, err, umm, uhh, mmm, huh, euh, ew, eh-eh
+If it appears 5 times → mark 5 times. If appears once → mark it.
+Examples:
+- "um hello um there um now" → 3 separate "um" fillers (positions: 0, 9, 19)
+- "uh I uh think uh it's uh ok" → 4 separate "uh" fillers
+- "hmm yes hmm maybe" → 2 "hmm" fillers
 
-Example: For "um I was um in the mall um today" you must return THREE entries for "um" at positions 0, 9, and 25 (or whatever the exact indices are in the string).
+==== TIER 2: VERBAL TICS & STALLING PHRASES (when used as filler, not content) ====
+Mark WHEN USED TO STALL OR FILL TIME (not when they're rhetorical/structural):
+like, you know, I mean, actually, basically, literally, well, sort of, kind of, right, yeah, okay, just, so, anyway, let me see, you see, I think, I guess, for sure
 
-Also count the total number of words in the text (standard word count: split by whitespace, count each token; e.g. "I'd" is one word, "wasn't" is one word). Include this as "word_count" in your JSON.
+Examples:
+- "like I think like we should like do it" → Mark all 3 "like" if they're hesitation, not part of "like x"
+- "I mean I think I mean we should" → both "I mean" are fillers
+- "well you know well it's hard" → both uses of "well" and "you know" are fillers
 
-Return your response as a JSON object with this exact format:
+==== TIER 3: REPEATED OR STUTTERED WORDS (when person repeats due to hesitation, not emphasis) ====
+"I I think", "the the thing", "and and also" → mark repeated word as 1 filler instance
+
+==== CRITICAL RULES ====
+1. Character precision: "position" MUST be exact 0-based index where filler STARTS in the raw text string.
+2. Length: Count exact characters. "um" = length 2. "mm-hmm" = length 6. "uh-huh" = length 6.
+3. VERIFY: I will check text[position:position+length] == word_from_json. If mismatch, it's wrong.
+4. DUPLICATION: If same word appears at 3 different places, output 3 entries with different positions.
+5. NO OVERLAPS: Entries must not overlap in character ranges.
+6. Word count: Split text by whitespace, count tokens. "don't" = 1 word. "uh-huh" = 1 token if contiguous.
+
+==== FALSE POSITIVES TO AVOID ====
+- "like" in "something like that" (comparison, not filler) — skip it
+- "right" when confirming "That's right, yes" — might be content, mark only if stalling sound
+- "I think" when introducing opinion — usually content, not hesitation; mark only if repeated/drawn-out
+- "okay" when acknowledging — content. Mark ONLY if drawn-out or repeated "okay okay"
+
+Preference: When in doubt, mark it. False positives (over-detection) are better than missing fillers.
+
+==== OUTPUT FORMAT (CRITICAL) ====
+Return PURE JSON, no markdown backticks, no explanation, no chatter:
+
 {
-  "word_count": 42,
+  "word_count": 123,
   "fillers": [
-    {
-      "word": "um",
-      "position": 15,
-      "length": 2
-    },
-    {
-      "word": "uh",
-      "position": 67,
-      "length": 2
-    }
+    {"word": "um", "position": 5, "length": 2},
+    {"word": "uh", "position": 18, "length": 2},
+    {"word": "like", "position": 42, "length": 4},
+    {"word": "you know", "position": 60, "length": 8}
   ]
 }
 
-If no filler words are found, return: {"word_count": <number>, "fillers": []}
-Always include "word_count" as an integer.
+If NO fillers found:
+{
+  "word_count": 456,
+  "fillers": []
+}
 
-Text to analyze:
+ALWAYS include "word_count" as an integer. ALWAYS use valid JSON.
+
+==== TEXT TO ANALYZE ====
 """
 
 

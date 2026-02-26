@@ -34,6 +34,7 @@ async def calculate_confidence_score(
     pause_ratio: float,
     hesitation_rate: float,
     fluency_score: float,
+    # Note: level, category, title are accepted but not forwarded to GPT anymore
     level: Optional[str] = None,
     category: Optional[str] = None,
     title: Optional[str] = None,
@@ -159,9 +160,7 @@ async def calculate_confidence_score(
         total_hesitations=total_hesitations,
         confidence_score=confidence_score,
         overall_rating=overall_rating,
-        level=level,
-        category=category,
-        title=title,
+        # level/category/title intentionally omitted; they are not used for scoring
     )
     
     return {
@@ -186,22 +185,12 @@ async def _generate_recommendations_with_gpt(
     total_hesitations: int,
     confidence_score: float,
     overall_rating: str,
-    level: Optional[str] = None,
-    category: Optional[str] = None,
-    title: Optional[str] = None,
 ) -> list:
     """
     Generate personalized recommendations using GPT based on speech metrics
     """
-    challenge_context = ""
-    if level or category or title:
-        challenge_context = "\nChallenge context:\n"
-        if level:
-            challenge_context += f"- Level: {level}\n"
-        if category:
-            challenge_context += f"- Category: {category}\n"
-        if title:
-            challenge_context += f"- Title: {title}\n"
+    # Do not send level/category/title to GPT; recommendations should be based solely on metrics
+    challenge_context = ""  # no additional context
 
     prompt = f"""You are an expert speech coach analyzing a person's speaking performance. Based on the following metrics, provide personalized, actionable recommendations to improve their speech confidence and fluency.{challenge_context}
 

@@ -1,0 +1,153 @@
+{
+  "text": "Hello there, my name is Amir Hossein, uh, I am 26 years old, and it's been seven years that I am working in the software industry, and, uh, lately I have started to work in a company called Praza, which is really a good company, but I feel like I am not doing my job pretty well. um um um um um um Also, I have started learning a new programming language called Go, though, one of my friends um um um um um um told me, uh, to learn Rust, which is a better choice, but at the end I went with Go. um um um um So, let's see what happens, and I will share a couple of more things later.",
+  "improved_text": "Hello everyone, my name is Amir Hossein. I'm 26 years old and have been working in the software industry for seven years. Recently, I started at a company called Praza, which is great, but I feel like I'm not performing as well as I could be. I've also begun learning a new programming language called Go. A friend suggested I learn Rust instead, saying it's a better choice, but I decided to go with Go. I'll share more details later.",
+  "tts_speech": null,
+  "level": "B1",
+  "category": "Speaking",
+  "title": "My Presentation",
+  "filler_words": [
+    {
+      "word": "uh",
+      "position": 38,
+      "length": 2
+    },
+    {
+      "word": "uh",
+      "position": 136,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 280,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 283,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 286,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 289,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 292,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 295,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 392,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 395,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 398,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 401,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 404,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 407,
+      "length": 2
+    },
+    {
+      "word": "uh",
+      "position": 419,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 495,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 498,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 501,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 504,
+      "length": 2
+    }
+  ],
+  "filler_count": 19,
+  "cleaned_text": "Hello there, my name is Amir Hossein,, I am 26 years old, and it's been seven years that I am working in the software industry, and,, lately I have started to work in a company called Praza, which is really a good company, but I feel like I am not doing my job pretty well. Also, I have started learning a new programming language called Go, though, one of my friends told me,, to learn Rust, which is a better choice, but at the end I went with Go. So, let's see what happens, and I will share a couple of more things later.",
+  "duration_seconds": 38.61,
+  "word_count": 108,
+  "wpm": 167.83,
+  "total_pauses": 2,
+  "total_hesitations": 19,
+  "pause_durations": [
+    0.9,
+    1.0
+  ],
+  "average_pause_duration": 0.9,
+  "total_pause_time": 1.9,
+  "hesitation_words": [
+    "uh",
+    "uh",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "uh",
+    "um",
+    "um",
+    "um",
+    "um"
+  ],
+  "fluency_score": 74.95,
+  "pause_ratio": 0.049,
+  "hesitation_rate": 17.59,
+  "confidence_score": 34.28,
+  "wpm_score": 12.17,
+  "filler_score": 0.0,
+  "pause_score": 100.0,
+  "hesitation_score": 0.0,
+  "overall_rating": "Very Low",
+  "recommendations": [
+    "Great job on delivering your presentation! To boost your confidence and fluency, let's focus on reducing filler words and hesitations. Try practicing with a friend or recording yourself speaking on a topic for a few minutes. Listen back and note where you use fillers like 'um' or 'uh'. Gradually work on pausing instead of using these fillers, which will make your speech sound more confident.",
+    "Your current speaking pace is a bit fast, which might be contributing to the use of filler words and hesitations. Aim to slow down slightly to around 140-150 words per minute. This will give you more time to think and reduce the need for fillers. Practice by reading a passage aloud and timing yourself to get comfortable with this pace.",
+    "To further enhance your confidence, try incorporating breathing exercises into your preparation routine. Before you start speaking, take a few deep breaths to calm your nerves. During your speech, remember to pause naturally at the end of sentences to breathe and gather your thoughts. This will help you maintain a steady pace and reduce hesitations."
+  ]
+}

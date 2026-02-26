@@ -7,8 +7,9 @@ Tune these to make scores stricter so "bad" speech does not get 100 everywhere.
 # Pause detection (pause_analysis.py)
 # -----------------------------------------------------------------------------
 # Minimum gap between Whisper segments (seconds) to count as a pause.
-# 0.1 = detect even tenth-of-second pauses (stronger detection).
-PAUSE_THRESHOLD_SEC = 0.1
+# 0.15 = detect micro-pauses that indicate hesitation/thinking (very sensitive).
+# At 0.15s, we catch hesitation pauses while filtering out speech artifacts.
+PAUSE_THRESHOLD_SEC = 0.15
 
 # -----------------------------------------------------------------------------
 # WPM score (confidence_analysis.py)
@@ -21,20 +22,23 @@ WPM_OPTIMAL_MAX = 145
 # Filler score (confidence_analysis.py)
 # -----------------------------------------------------------------------------
 # Full score only when fillers per 100 words <= this. Lower = stricter.
-FILLERS_PER_100_FOR_FULL_SCORE = 0.5
+# 0.3 is very strict (almost zero fillers for full score); changed from 0.5
+FILLERS_PER_100_FOR_FULL_SCORE = 0.3
 
 # -----------------------------------------------------------------------------
 # Pause ratio score (confidence_analysis.py)
 # -----------------------------------------------------------------------------
 # Full score only when pause_ratio <= this. Lower = stricter (e.g. 0.03 = 3%).
-PAUSE_RATIO_FOR_FULL_SCORE = 0.03
+# 0.05 (5%) is more forgiving; 0.03 (3%) is strict. Use 0.05 for natural speech.
+PAUSE_RATIO_FOR_FULL_SCORE = 0.05
 
 # -----------------------------------------------------------------------------
 # Hesitation score (confidence_analysis.py)
 # -----------------------------------------------------------------------------
 # Hesitation = regex (um/uh/er...) + optionally filler_count for "like/you know".
-# Full score only when effective rate per 100 words <= this.
-HESITATION_RATE_FOR_FULL_SCORE = 0.8
+# Full score only when hesitation rate per 100 words <= this.
+# 1.0 = ~1 hesitation per 100 words for full score (very strict). Changed from 0.8.
+HESITATION_RATE_FOR_FULL_SCORE = 1.0
 
 # Hesitation = from GPT only (total_hesitations already = len(filler_words)). No extra filler weighting.
 USE_FILLER_COUNT_IN_HESITATION = False

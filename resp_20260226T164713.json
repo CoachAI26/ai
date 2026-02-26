@@ -1,0 +1,69 @@
+{
+  "text": "Erm... When I was 12 years old, I got raped by my uncle, and it was a really bad experience. um um um um Transcribe EVERYTHING spoken, exactly as spoken.",
+  "improved_text": "... When I was 12 years old, I got raped by my uncle, and it was a really bad experience.mm Transcribe EVERYTHING spoken, exactly as spoken.",
+  "tts_speech": null,
+  "level": "B1",
+  "category": "Speaking",
+  "title": "My Presentation",
+  "filler_words": [
+    {
+      "word": "Erm",
+      "position": 0,
+      "length": 3
+    },
+    {
+      "word": "um",
+      "position": 92,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 95,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 99,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 102,
+      "length": 2
+    }
+  ],
+  "filler_count": 5,
+  "cleaned_text": "... When I was 12 years old, I got raped by my uncle, and it was a really bad experience.mm Transcribe EVERYTHING spoken, exactly as spoken.",
+  "duration_seconds": 12.84,
+  "word_count": 29,
+  "wpm": 135.51,
+  "total_pauses": 1,
+  "total_hesitations": 5,
+  "pause_durations": [
+    1.8
+  ],
+  "average_pause_duration": 1.8,
+  "total_pause_time": 1.8,
+  "hesitation_words": [
+    "Erm",
+    "um",
+    "um",
+    "um",
+    "um"
+  ],
+  "fluency_score": 68.1,
+  "pause_ratio": 0.14,
+  "hesitation_rate": 17.24,
+  "confidence_score": 41.72,
+  "wpm_score": 100.0,
+  "filler_score": 0.03,
+  "pause_score": 32.5,
+  "hesitation_score": 0.0,
+  "overall_rating": "Very Low",
+  "recommendations": [
+    "Keep your pace exactly where it is (135 WPM is excellent) and use it to your advantage: add intentional “silent beats” instead of filler/hesitation sounds. Practice this drill: read a short paragraph aloud and, every time you feel an “um/uh” coming, stop and take one quiet breath (1–2 seconds) before continuing. Record yourself and aim to replace at least 3 of the 5 filler/hesitation moments with clean silence.",
+    "Reduce filler words and hesitation sounds (both ~17 per 100 words) by switching to a simple planning structure before you speak: use a 3-point outline (Point–Reason–Example). Before answering, take one breath and mentally label your next sentence as “Point.” This tiny pre-plan lowers uncertainty and makes you less likely to reach for “um/uh/like” while searching for words.",
+    "Your pauses are taking ~14% of speaking time; make them feel confident by placing them on purpose. Mark 2–3 pause spots in your next practice talk: (1) after your opening sentence, (2) before a key word, (3) after a key point. Hold each pause for a slow count of 1. This turns pauses from “stuck” moments into emphasis, which will lift your overall confidence score quickly.",
+    "Build confidence with a repeatable warm-up and a low-stakes repetition routine: 60 seconds of slow diaphragmatic breathing + 60 seconds of speaking on an easy topic (your day) while keeping your mouth moving and sentences short. Then repeat the same 30–45 second message 3 times, trying to cut filler/hesitations each round (5 → 3 → 1). Track the count—seeing it drop is a fast confidence booster."
+  ]
+}

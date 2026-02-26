@@ -1,0 +1,169 @@
+{
+  "text": "SPEAKER AUDIO ENDS Hello there, my name is Amir Hussain, uh, I'm 26 years old and it's been seven years that I'm working in software industry um um um um and uh, lately I have started to work in a company called Fraza, which is really a good company, but I feel like I'm not doing my job pretty well. um um um um um um Also, I have started learning a new programming language called Gozo, one of my friends told me uh to learn Rust which is a better um um um um um um um um um choice, but at the end I went with Go. So let's see what happens. I will share a couple of more things later.",
+  "improved_text": "Hello, my name is Amir Hussain. I'm 26 years old and have been working in the software industry for seven years. Recently, I started working at a company called Fraza, which is great, but I feel I'm not performing as well as I could. I've also begun learning a new programming language called Go. A friend suggested I learn Rust, which might be a better choice, but I decided to go with Go. I'll share more details later.",
+  "tts_speech": null,
+  "level": "B1",
+  "category": "Speaking",
+  "title": "My Presentation",
+  "filler_words": [
+    {
+      "word": "uh",
+      "position": 57,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 142,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 145,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 148,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 151,
+      "length": 2
+    },
+    {
+      "word": "uh",
+      "position": 158,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 301,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 304,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 307,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 310,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 313,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 316,
+      "length": 2
+    },
+    {
+      "word": "uh",
+      "position": 415,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 450,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 453,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 456,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 459,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 462,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 465,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 468,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 471,
+      "length": 2
+    },
+    {
+      "word": "um",
+      "position": 474,
+      "length": 2
+    }
+  ],
+  "filler_count": 22,
+  "cleaned_text": "SPEAKER AUDIO ENDS Hello there, my name is Amir Hussain,, I'm 26 years old and it's been seven years that I'm working in software industry and, lately I have started to work in a company called Fraza, which is really a good company, but I feel like I'm not doing my job pretty well. Also, I have started learning a new programming language called Gozo, one of my friends told me to learn Rust which is a better choice, but at the end I went with Go. So let's see what happens. I will share a couple of more things later.",
+  "duration_seconds": 38.61,
+  "word_count": 108,
+  "wpm": 167.83,
+  "total_pauses": 0,
+  "total_hesitations": 22,
+  "pause_durations": [],
+  "average_pause_duration": 0.0,
+  "total_pause_time": 0.0,
+  "hesitation_words": [
+    "uh",
+    "um",
+    "um",
+    "um",
+    "um",
+    "uh",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "uh",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um",
+    "um"
+  ],
+  "fluency_score": 75.56,
+  "pause_ratio": 0.0,
+  "hesitation_rate": 20.37,
+  "confidence_score": 34.38,
+  "wpm_score": 12.17,
+  "filler_score": 0.0,
+  "pause_score": 100.0,
+  "hesitation_score": 0.0,
+  "overall_rating": "Very Low",
+  "recommendations": [
+    "To improve your speech confidence, start by practicing with a focus on reducing filler words. Try recording yourself and listen back to identify common filler words you use. Replace them with a brief pause to give yourself a moment to think.",
+    "Work on incorporating natural pauses into your speech. This will help you slow down and reduce the number of hesitations. Practice speaking in front of a mirror or with a friend, consciously pausing at the end of sentences or after key points.",
+    "Increase your words per minute by practicing with a metronome or a speech pacing app. Set a comfortable pace and gradually increase it as you become more confident. This will help you maintain a steady flow and reduce hesitations.",
+    "Boost your overall confidence by preparing thoroughly. Outline your presentation and practice it multiple times. Familiarity with your content will naturally reduce anxiety and improve your delivery."
+  ]
+}

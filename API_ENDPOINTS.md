@@ -66,7 +66,7 @@ Upload an audio file and get comprehensive speech analysis.
 - MP3, WAV, M4A, OGG, FLAC, WebM, AAC
 
 **Request (optional form fields):**
-- `level` (optional): Challenge level
+- `level` (optional): Challenge level (for user context only; not used in scoring)
 - `category` (optional): Category
 - `title` (optional): Title
 

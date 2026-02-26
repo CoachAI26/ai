@@ -1,0 +1,46 @@
+{
+  "text": "Hello there, my name is Amir Hussain. I'm 26 years old and it's been seven years that I'm working in software industry and Lately I have started to work in a company called Praza, which is really a good company But I feel like I'm not doing my job pretty well Also, I have started learning a new programming language called Guzo. One of my friends told me to learn Rust which is a better choice, but at the end I went with Go. So let's see what happens. I will share a couple of more things later.",
+  "improved_text": "Hello there, my name is Amir Hussain. I'm 26 years old and it's been seven years that I'm working in software industry and Lately I have started to work in a company called Praza, which is a good company But I feel like I'm not doing my job pretty well Also, I have started learning a new programming language called Guzo. One of my friends told me to learn Rust which is a better choice, but at the end I went with Go. So let's see what happens. I will share a couple of more things later.",
+  "tts_speech": null,
+  "level": "B1",
+  "category": "Speaking",
+  "title": "My Presentation",
+  "filler_words": [
+    {
+      "word": "really",
+      "position": 189,
+      "length": 6
+    }
+  ],
+  "filler_count": 1,
+  "cleaned_text": "Hello there, my name is Amir Hussain. I'm 26 years old and it's been seven years that I'm working in software industry and Lately I have started to work in a company called Praza, which is a good company But I feel like I'm not doing my job pretty well Also, I have started learning a new programming language called Guzo. One of my friends told me to learn Rust which is a better choice, but at the end I went with Go. So let's see what happens. I will share a couple of more things later.",
+  "duration_seconds": 38.61,
+  "word_count": 83,
+  "wpm": 128.98,
+  "total_pauses": 2,
+  "total_hesitations": 1,
+  "pause_durations": [
+    2.5,
+    1.1
+  ],
+  "average_pause_duration": 1.8,
+  "total_pause_time": 3.6,
+  "hesitation_words": [
+    "really"
+  ],
+  "fluency_score": 91.1,
+  "pause_ratio": 0.093,
+  "hesitation_rate": 1.2,
+  "confidence_score": 66.47,
+  "wpm_score": 69.32,
+  "filler_score": 63.25,
+  "pause_score": 44.31,
+  "hesitation_score": 72.0,
+  "overall_rating": "Moderate",
+  "recommendations": [
+    "Stabilize your pace for clarity: 129 WPM is generally good, but your score suggests it may vary. Practice a “pace ladder” with your presentation: rehearse one section at ~115 WPM (slower), then ~125 WPM (target), then ~135 WPM (slightly faster). Record yourself and choose the version where you sound most clear and confident, then aim to keep that pace throughout.",
+    "Turn pauses into confident, intentional breaks: with 9.3% pause time, you can make pauses work for you instead of feeling like you’re searching for words. Add planned 1-second pauses after key points and before transitions (e.g., after your main idea, before the next slide). Mark your script with “//” where you will pause, and rehearse keeping your posture steady and eyes up during the pause.",
+    "Reduce hesitation sounds with a replacement habit: your filler words are already low (great), so focus on the 1 hesitation sound by swapping it with a silent breath. Drill: speak 5 sentences, and every time you feel a hesitation coming, stop, inhale quietly through the nose, then continue. This trains your brain to choose a calm reset instead of an “uh/um.”",
+    "Boost confidence with a simple opening routine: your overall confidence (66.47) can rise quickly with a stronger start. Before presenting, do 2 rounds of: (1) 10 seconds of slow breathing (4 in / 6 out), (2) say your first two lines out loud with a slightly slower pace and clear final words. A confident first 15 seconds often lifts confidence for the whole talk."
+  ]
+}

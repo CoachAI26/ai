@@ -1,0 +1,49 @@
+{
+  "text": "Mm. Hello there, my name is Ilia Nozeri and I'm AI developer and my friend's name is Amir Reza Kuhi. Um, yeah. It's end.",
+  "improved_text": "Hello, my name is Ilia Nozeri, and I'm an AI developer. My friend's name is Amir Reza Kuhi. Thank you.",
+  "tts_speech": null,
+  "level": "B1",
+  "category": "Speaking",
+  "title": "My Presentation",
+  "filler_words": [
+    {
+      "word": "Mm",
+      "position": 0,
+      "length": 2
+    },
+    {
+      "word": "Um",
+      "position": 101,
+      "length": 2
+    }
+  ],
+  "filler_count": 2,
+  "cleaned_text": ". Hello there, my name is Ilia Nozeri and I'm AI developer and my friend's name is Amir Reza Kuhi., yeah. It's end.",
+  "duration_seconds": 18.32,
+  "word_count": 25,
+  "wpm": 81.88,
+  "total_pauses": 0,
+  "total_hesitations": 2,
+  "pause_durations": [],
+  "average_pause_duration": 0.0,
+  "total_pause_time": 0.0,
+  "hesitation_words": [
+    "Mm",
+    "Um"
+  ],
+  "fluency_score": 90.4,
+  "pause_ratio": 0.0,
+  "hesitation_rate": 8.0,
+  "confidence_score": 42.69,
+  "wpm_score": 27.35,
+  "filler_score": 4.65,
+  "pause_score": 100.0,
+  "hesitation_score": 7.5,
+  "overall_rating": "Low",
+  "recommendations": [
+    "To increase your words per minute and improve fluency, practice speaking with a metronome set to a slightly faster pace than your current rate. This will help you get comfortable with a more natural speaking speed. Start with short, simple sentences and gradually increase the complexity as you become more confident.",
+    "Since you have a low number of pauses, try incorporating intentional pauses in your speech. This will not only give you a moment to gather your thoughts but also make your speech more engaging for the audience. Practice pausing at the end of sentences or after key points to emphasize your message.",
+    "To reduce hesitations, practice using transitional phrases or connectors. This will help you maintain the flow of your speech and reduce the need for filler words. For example, use phrases like 'moving on to,' 'another point to consider,' or 'in addition to that.'",
+    "Boost your overall confidence by recording yourself and listening to the playback. Focus on the areas where you feel less confident and practice those sections repeatedly. Hearing your progress over time will build your confidence and help you identify areas for further improvement."
+  ]
+}

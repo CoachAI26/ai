@@ -1,0 +1,37 @@
+{
+  "text": "Hello there, my name is Amir Hussain. I'm 26 years old and it's been seven years that I'm working in software industry and Lately I have started to work in a company called Praza, which is really a good company But I feel like I'm not doing my job pretty well Also, I have started learning a new programming language called Guzo. One of my friends told me to learn Rust, which is a better choice, but at the end I went with Go. So let's see what happens. I will share a couple of more things later.",
+  "improved_text": "Hello there, my name is Amir Hussain. I'm 26 years old and it's been seven years that I'm working in software industry and Lately I have started to work in a company called Praza, which is really a good company But I feel like I'm not doing my job pretty well Also, I have started learning a new programming language called Guzo. One of my friends told me to learn Rust, which is a better choice, but at the end I went with Go. So let's see what happens. I will share a couple of more things later.",
+  "tts_speech": null,
+  "level": "B1",
+  "category": "Speaking",
+  "title": "My Presentation",
+  "filler_words": [],
+  "filler_count": 0,
+  "cleaned_text": "Hello there, my name is Amir Hussain. I'm 26 years old and it's been seven years that I'm working in software industry and Lately I have started to work in a company called Praza, which is really a good company But I feel like I'm not doing my job pretty well Also, I have started learning a new programming language called Guzo. One of my friends told me to learn Rust, which is a better choice, but at the end I went with Go. So let's see what happens. I will share a couple of more things later.",
+  "duration_seconds": 38.61,
+  "word_count": 95,
+  "wpm": 147.63,
+  "total_pauses": 2,
+  "total_hesitations": 0,
+  "pause_durations": [
+    2.5,
+    1.1
+  ],
+  "average_pause_duration": 1.8,
+  "total_pause_time": 3.6,
+  "hesitation_words": [],
+  "fluency_score": 92.54,
+  "pause_ratio": 0.093,
+  "hesitation_rate": 0.0,
+  "confidence_score": 83.8,
+  "wpm_score": 84.22,
+  "filler_score": 100.0,
+  "pause_score": 44.31,
+  "hesitation_score": 100.0,
+  "overall_rating": "Good",
+  "recommendations": [
+    "Use your pauses more intentionally to boost clarity and confidence: you only had 2 pauses, but they took ~9.3% of your speaking time—this can feel like a couple of “long stops.” Practice replacing long pauses with 2–3 shorter, planned pauses (0.5–1 second) at natural points: after your main idea, before an example, and before your conclusion. Mark these pause points in your notes with a “//” and rehearse with a timer.",
+    "Fine-tune your pace for a presentation style: 147.6 WPM is strong and fluent, but for B1 presentations it can sometimes sound a bit fast for listeners. Aim for ~130–145 WPM on key points. Technique: underline your 5–7 most important words per section and slightly slow down + add a short pause right after each key sentence (this keeps you sounding confident without losing fluency).",
+    "Add confident structure cues to sound more in control (even when you’re thinking): since you have 0 fillers/hesitations, your next upgrade is using clear signposting. Prepare 6–8 “presentation anchors” and use them automatically: “Today I’ll talk about…”, “First…”, “The main point is…”, “For example…”, “To summarize…”. Rehearse once focusing only on these phrases so they come out smoothly and reduce the chance of silent searching."
+  ]
+}
