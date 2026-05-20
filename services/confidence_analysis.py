@@ -84,17 +84,8 @@ async def calculate_confidence_score(
     # 2. Filler Score — full score only when fillers per 100 <= config threshold
     fillers_per_100 = (filler_count / word_count * 100) if word_count > 0 else 0
     fillers_per_100_value = fillers_per_100
-    t = FILLERS_PER_100_FOR_FULL_SCORE
-    if fillers_per_100 <= t:
-        filler_score = 100.0
-    elif fillers_per_100 <= t + 1.5:
-        filler_score = 75.0 - ((fillers_per_100 - t) / 1.5) * 25
-    elif fillers_per_100 <= t + 4:
-        filler_score = 50.0 - ((fillers_per_100 - t - 1.5) / 2.5) * 25
-    elif fillers_per_100 <= t + 7:
-        filler_score = 25.0 - ((fillers_per_100 - t - 4) / 3) * 20
-    else:
-        filler_score = max(0, 5.0 - (fillers_per_100 - t - 7) * 0.5)
+    filler_rate = (filler_count / word_count) if word_count > 0 else 0
+    filler_score = max(0.0, min(100.0, 100.0 - filler_rate * 300.0))
 
     # 3. Pause Score — full score only when pause_ratio <= config threshold
     p_full = PAUSE_RATIO_FOR_FULL_SCORE
@@ -115,17 +106,7 @@ async def calculate_confidence_score(
         hesitation_rate_used = effective_hesitations / word_count * 100
     else:
         hesitation_rate_used = hesitation_rate
-    h_full = HESITATION_RATE_FOR_FULL_SCORE
-    if hesitation_rate_used <= h_full:
-        hesitation_score = 100.0
-    elif hesitation_rate_used <= h_full + 1.5:
-        hesitation_score = 80.0 - ((hesitation_rate_used - h_full) / 1.5) * 30
-    elif hesitation_rate_used <= h_full + 4.5:
-        hesitation_score = 50.0 - ((hesitation_rate_used - h_full - 1.5) / 3) * 30
-    elif hesitation_rate_used <= h_full + 8.5:
-        hesitation_score = 20.0 - ((hesitation_rate_used - h_full - 4.5) / 4) * 20
-    else:
-        hesitation_score = 0.0
+    hesitation_score = max(0.0, min(100.0, 100.0 - hesitation_rate_used * 2.0))
 
     # 5. Overall Confidence Score (weighted average from config)
     confidence_score = (

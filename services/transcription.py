@@ -10,6 +10,19 @@ from config import (
 )
 
 
+def _clean_transcription_artifacts(text: str) -> str:
+    """Remove non-speech labels that Whisper sometimes emits as words."""
+    if not text:
+        return text
+    import re
+
+    cleaned = text
+    cleaned = re.sub(r"^\s*SPEAKER\s+\d+\s*[:\-]?\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"^\s*SPEAKER\s+AUDIO\s+ENDS\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
 # Import audio hesitation detector if available
 try:
     from services.audio_hesitation_detector import (
@@ -169,19 +182,10 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
     # Detected language (e.g. "english", "french") for English-only enforcement
     detected_language = getattr(transcription, "language", None) or (isinstance(transcription, dict) and transcription.get("language")) or None
     
-    # Post-process: Inject hesitations detected directly from audio
-    # This catches "um/uh/er" that Whisper dropped but are actually in the audio
-    text = transcription.text
-    if HAS_AUDIO_DETECTOR and segments:
-        try:
-            hesitation_regions = detect_hesitations_from_audio(audio_file_path, segments)
-            if hesitation_regions:
-                text = inject_hesitations_into_text(text, segments, hesitation_regions)
-                import logging
-                logging.getLogger(__name__).info(f"Injected {len(hesitation_regions)} audio-detected hesitation markers")
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"Audio hesitation detection failed: {e}")
+    # Do not synthesize missing filler words from audio heuristics.
+    # Filler detection must use only words present in the transcript; otherwise
+    # we create guessed "um/uh" tokens that the user may not have actually said.
+    text = _clean_transcription_artifacts(transcription.text)
     
     return {
         "text": text,

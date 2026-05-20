@@ -129,6 +129,11 @@ def inject_hesitations_into_text(
         return text
     
     try:
+        def _um_marker_at(pos: int) -> str:
+            prefix = "" if pos <= 0 or text[pos - 1].isspace() else " "
+            suffix = "" if pos >= len(text) or text[pos].isspace() else " "
+            return f"{prefix}um{suffix}"
+
         # Build a map of segment boundaries to text positions
         segment_map = []
         text_pos = 0
@@ -152,8 +157,35 @@ def inject_hesitations_into_text(
         
         # For each hesitation, find where to inject it
         injections = []
+        if segment_map:
+            first_seg = segment_map[0]
+            first_start = first_seg.get("start")
+            first_text_start = first_seg.get("text_start", 0)
+        else:
+            first_start = None
+            first_text_start = 0
+
         for hes in hesitation_regions:
             hes_time = hes["start"]
+            hes_type = hes.get("type")
+
+            # If a hesitation happens before the first recognized speech segment,
+            # inject it at the beginning. This catches cases where Whisper drops an
+            # opening "um/uh" before the first real words.
+            if (
+                first_start is not None
+                and hes.get("end") is not None
+                and hes["end"] <= first_start + 0.15
+                and hes.get("duration", 0) >= 0.12
+            ):
+                injections.append((first_text_start, _um_marker_at(first_text_start)))
+                continue
+
+            # Low-energy regions inside speech are too noisy to treat as fillers.
+            # Use them only for the opening case above; normal injections should
+            # come from actual gaps between Whisper segments.
+            if hes_type != "inter_segment_gap":
+                continue
             
             # Find the segment that contains or precedes this hesitation time
             relevant_seg = None
@@ -162,20 +194,23 @@ def inject_hesitations_into_text(
                     relevant_seg = seg
             
             if relevant_seg:
-                # Inject "um " after this segment (before next word)
+                # Inject at a segment boundary while preserving word spacing.
                 inject_pos = relevant_seg["text_end"]
-                # Make sure we're at a word boundary
-                if inject_pos < len(text) and text[inject_pos] == ' ':
-                    inject_pos += 1
-                injections.append((inject_pos, "um "))
+                injections.append((inject_pos, _um_marker_at(inject_pos)))
         
         # Apply injections in reverse order to maintain position consistency
         result = text
-        for pos, marker in sorted(injections, reverse=True):
+        deduped_injections = []
+        for pos, marker in sorted(injections, key=lambda item: item[0]):
+            if deduped_injections and abs(pos - deduped_injections[-1][0]) < 3:
+                continue
+            deduped_injections.append((pos, marker))
+
+        for pos, marker in sorted(deduped_injections, reverse=True):
             if 0 <= pos <= len(result):
                 result = result[:pos] + marker + result[pos:]
         
-        logger.info(f"Injected {len(injections)} hesitation markers into text")
+        logger.info(f"Injected {len(deduped_injections)} hesitation markers into text")
         return result
         
     except Exception as e:

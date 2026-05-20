@@ -1,0 +1,68 @@
+﻿{
+    "text":  "\u0027\u0027Um I think the biggest challenge in learning English is uh speaking naturally under pressure because uh sometimes I know the words but I uh I hesitate and uh lose confidence.\u0027\u0027",
+    "improved_text":  "\u0027\u0027 I think the biggest challenge in learning English is speaking naturally under pressure because sometimes I know the words but I I hesitate and lose confidence.\u0027\u0027",
+    "tts_speech":  null,
+    "level":  "B1",
+    "category":  "Speaking",
+    "title":  "What is the biggest challenge in learning English?",
+    "filler_words":  [
+                         {
+                             "word":  "Um",
+                             "position":  2,
+                             "length":  2
+                         },
+                         {
+                             "word":  "uh",
+                             "position":  58,
+                             "length":  2
+                         },
+                         {
+                             "word":  "uh",
+                             "position":  103,
+                             "length":  2
+                         },
+                         {
+                             "word":  "uh",
+                             "position":  139,
+                             "length":  2
+                         },
+                         {
+                             "word":  "uh",
+                             "position":  157,
+                             "length":  2
+                         }
+                     ],
+    "filler_count":  5,
+    "cleaned_text":  "\u0027\u0027 I think the biggest challenge in learning English is speaking naturally under pressure because sometimes I know the words but I I hesitate and lose confidence.\u0027\u0027",
+    "duration_seconds":  16.25,
+    "word_count":  27,
+    "wpm":  99.69,
+    "total_pauses":  0,
+    "total_hesitations":  5,
+    "pause_durations":  [
+
+                        ],
+    "average_pause_duration":  0.0,
+    "total_pause_time":  0.0,
+    "hesitation_words":  [
+                             "Um",
+                             "uh",
+                             "uh",
+                             "uh",
+                             "uh"
+                         ],
+    "fluency_score":  77.78,
+    "pause_ratio":  0.0,
+    "hesitation_rate":  18.52,
+    "confidence_score":  64.63,
+    "wpm_score":  49.61,
+    "filler_score":  44.44,
+    "pause_score":  100.0,
+    "hesitation_score":  62.96,
+    "overall_rating":  "Moderate",
+    "recommendations":  [
+                            "Build in intentional pauses to replace fillers/hesitations (you had 0 pauses, but ~18.5 fillers and ~18.5 hesitation sounds per 100 words). Practice â€œperiod pausesâ€: after each sentence, silently count â€œone-one-thousandâ€ before continuing. In rehearsal, mark 3â€“5 pause spots in your notes (after key points or before a new idea). This gives your brain planning time so you donâ€™t default to â€œum/uh/like.â€",
+                            "Raise your pace slightly for smoother flow (99.7 WPM is on the slow side and can make you feel less confident). Do 5 minutes of pacing drills: read a short paragraph aiming for 115â€“130 WPM, using a timer and a slash mark â€œ/â€ where youâ€™ll pause. Keep the pauses, but shorten the in-between wordsâ€”think â€œsteady and conversational,â€ not rushed.",
+                            "Use a filler-replacement script and a reset technique. Pick one go-to replacement for thinking moments: a silent breath + a transition phrase like â€œHereâ€™s the key pointâ€¦â€ or â€œWhat this means isâ€¦â€. When you catch a hesitation sound, do a quick reset: stop, inhale through the nose, then restart the sentence from the last clear phrase (donâ€™t apologize). Track one metric per practice (e.g., reduce fillers from 5 to 3) to build confidence through visible wins."
+                        ]
+}

@@ -32,9 +32,47 @@ def _max_tokens_kwargs(n: int) -> dict:
 
 # Regex pattern to catch hesitation sounds — comprehensive list with multiple variations
 HESITATION_REGEX = re.compile(
-    r"\b(um+|uh+|u+h+|uh-huh|er+|erm+|ah+|ahhh+|hmm+|mm-hmm|mhm+|eh+|eh+m+|mm+|uh-huh|um-um|uh-uh)\b",
+    r"\b("
+    r"mm-hmm|uh-huh|um-um|uh-uh|ah-ha|eh-eh|"
+    r"u+h+|um+|uh+|erm+|err+|er+|ahh+|ah+|hmm+|hm+|mhm+|mmm+|mm+|"
+    r"huh+|eh+m+|eh+|em+|euh+|ew+|ur+"
+    r")\b",
     re.IGNORECASE,
 )
+
+
+def _span_overlaps(span_start: int, span_end: int, existing: List[Dict[str, Any]]) -> bool:
+    for f in existing:
+        e_start = int(f.get("position", 0))
+        e_end = e_start + int(f.get("length", 0))
+        if not (span_end <= e_start or span_start >= e_end):
+            return True
+    return False
+
+
+def _detect_hesitation_sounds_locally(text: str) -> List[Dict[str, Any]]:
+    """
+    Deterministic detection for explicit hesitation sounds in the transcript.
+    GPT can still add contextual fillers later, but these should never depend on GPT.
+    """
+    if not text:
+        return []
+    fillers: List[Dict[str, Any]] = []
+    for match in HESITATION_REGEX.finditer(text):
+        word = match.group(0)
+        fillers.append({"word": word, "position": match.start(), "length": len(word)})
+    return fillers
+
+
+GPT_FILLER_BLOCKLIST = {
+    "i think",
+    "i guess",
+}
+
+
+def _should_accept_gpt_filler(word: str) -> bool:
+    normalized = re.sub(r"\s+", " ", word.strip().lower())
+    return normalized not in GPT_FILLER_BLOCKLIST
 
 # Filler word detection prompt for GPT — MAXIMUM sensitivity to hesitation sounds
 FILLER_WORD_DETECTION_PROMPT = """ABSOLUTE MISSION: Identify EVERY SINGLE filler word and hesitation with ZERO TOLERANCE for misses.
@@ -52,7 +90,7 @@ Examples:
 
 ==== TIER 2: VERBAL TICS & STALLING PHRASES (when used as filler, not content) ====
 Mark WHEN USED TO STALL OR FILL TIME (not when they're rhetorical/structural):
-like, you know, I mean, actually, basically, literally, well, sort of, kind of, right, yeah, okay, just, so, anyway, let me see, you see, I think, I guess, for sure
+like, you know, I mean, actually, basically, literally, well, sort of, kind of, right, yeah, okay, just, so, anyway, let me see, you see, for sure
 
 Examples:
 - "like I think like we should like do it" → Mark all 3 "like" if they're hesitation, not part of "like x"
@@ -111,6 +149,11 @@ async def detect_filler_words_with_gpt(text: str) -> Tuple[List[Dict[str, Any]],
     Returns:
         (list of filler words with positions/lengths, word_count from GPT)
     """
+    from services.wpm_calculation import count_words
+
+    local_hesitations = _detect_hesitation_sounds_locally(text)
+    word_count = count_words(text)
+
     try:
         # Create prompt with the text
         prompt = FILLER_WORD_DETECTION_PROMPT + text
@@ -174,37 +217,29 @@ async def detect_filler_words_with_gpt(text: str) -> Tuple[List[Dict[str, Any]],
                 else:
                     filler_words = []
         
-        # Validate and clean the results
-        validated_fillers = []
+        # Start with deterministic hesitation sounds, then let GPT add contextual
+        # fillers such as "you know", "I mean", or filler-like "like".
+        validated_fillers = list(local_hesitations)
         for filler in filler_words:
             if isinstance(filler, dict) and "word" in filler and "position" in filler:
-                word = filler["word"]
+                word = str(filler["word"])
                 position = int(filler["position"])
-                length = filler.get("length", len(word))
+                length = int(filler.get("length", len(word)))
                 
                 # Verify the position is valid
                 if 0 <= position < len(text):
                     # Verify the word actually exists at that position
-                    actual_word = text[position:position+length].strip()
-                    if word.lower() in actual_word.lower() or actual_word.lower() in word.lower():
+                    actual_word = text[position:position+length]
+                    if (
+                        actual_word.strip().lower() == word.strip().lower()
+                        and _should_accept_gpt_filler(actual_word)
+                        and not _span_overlaps(position, position + length, validated_fillers)
+                    ):
                         validated_fillers.append({
-                            "word": word,
+                            "word": actual_word,
                             "position": position,
                             "length": length
                         })
-
-        # Strengthen: add regex-detected hesitation sounds (um/uh/er/erm/ah/hmm) that GPT may have missed
-        def _overlaps(span_start: int, span_end: int, existing: List[Dict[str, Any]]) -> bool:
-            for f in existing:
-                e_start, e_end = f["position"], f["position"] + f.get("length", 0)
-                if not (span_end <= e_start or span_start >= e_end):
-                    return True
-            return False
-
-        for m in HESITATION_REGEX.finditer(text):
-            pos, length = m.start(), len(m.group(0))
-            if not _overlaps(pos, pos + length, validated_fillers):
-                validated_fillers.append({"word": m.group(0), "position": pos, "length": length})
 
         # Sort by position and remove overlaps (keep first occurrence when overlapping)
         validated_fillers = sorted(validated_fillers, key=lambda x: x["position"])
@@ -221,15 +256,13 @@ async def detect_filler_words_with_gpt(text: str) -> Tuple[List[Dict[str, Any]],
         if word_count_from_gpt is not None and word_count_from_gpt >= 0:
             word_count = word_count_from_gpt
         else:
-            from services.wpm_calculation import count_words
             word_count = count_words(text)
 
         return (non_overlapping, word_count)
 
     except Exception as e:
         print(f"Error in GPT filler word detection: {str(e)}")
-        from services.wpm_calculation import count_words
-        return ([], count_words(text) if text else 0)
+        return (local_hesitations, word_count)
 
 
 def remove_filler_words(text: str, filler_positions: List[Dict[str, Any]]) -> str:
@@ -250,12 +283,18 @@ def remove_filler_words(text: str, filler_positions: List[Dict[str, Any]]) -> st
     for filler in filler_positions_sorted:
         start = filler['position']
         end = start + filler['length']
-        # Remove the filler word
+
+        # Remove punctuation attached only to the filler, e.g. "Um," or "Mm.".
+        while end < len(result) and result[end] in ",.;:!?":
+            end += 1
+
         result = result[:start] + result[end:]
         # Clean up spaces around punctuation and collapse whitespace
         result = re.sub(r'\s+', ' ', result)
+        result = re.sub(r'^\s*[,.!?;:]\s*', '', result)
         result = re.sub(r'\s+([,.;:!?])', r'\1', result)   # space before punctuation
         result = re.sub(r'([,.;:!?])\s+', r'\1 ', result)  # normalize after punctuation
+        result = re.sub(r'([,.;:!?]){2,}', r'\1', result)
         result = result.strip()
     
     return result
