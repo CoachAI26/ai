@@ -33,6 +33,7 @@ class TranscriptionResponse(BaseModel):
     average_pause_duration: float
     total_pause_time: float
     hesitation_words: List[str]
+    pause_source: Optional[str] = None
     # Fluency metrics
     fluency_score: float
     pause_ratio: float
@@ -45,4 +46,3 @@ class TranscriptionResponse(BaseModel):
     hesitation_score: float
     overall_rating: str
     recommendations: List[str]
-

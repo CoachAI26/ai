@@ -74,80 +74,99 @@ def _should_accept_gpt_filler(word: str) -> bool:
     normalized = re.sub(r"\s+", " ", word.strip().lower())
     return normalized not in GPT_FILLER_BLOCKLIST
 
-# Filler word detection prompt for GPT — MAXIMUM sensitivity to hesitation sounds
-FILLER_WORD_DETECTION_PROMPT = """ABSOLUTE MISSION: Identify EVERY SINGLE filler word and hesitation with ZERO TOLERANCE for misses.
+CONTEXTUAL_FILLER_PATTERNS = [
+    r"\byou\s+know\b",
+    r"\bi\s+mean\b",
+    r"\bsort\s+of\b",
+    r"\bkind\s+of\b",
+    r"\blet\s+me\s+see\b",
+    r"\byou\s+see\b",
+    r"\bfor\s+sure\b",
+    r"\blike\b",
+    r"\bactually\b",
+    r"\bbasically\b",
+    r"\bliterally\b",
+    r"\bwell\b",
+    r"\bright\b",
+    r"\byeah\b",
+    r"\bokay\b",
+    r"\bjust\b",
+    r"\bso\b",
+    r"\banyway\b",
+]
 
-You are a forensic speech analyzer. This is real spoken English with natural hesitations. Your ONLY job: find ALL fillers.
 
-==== TIER 1: HESITATION SOUNDS (NON-NEGOTIABLE — NEVER EVER MISS THESE) ====
-Mark EVERY. SINGLE. OCCURRENCE of:
-um, uh, ur, eh, ah, ah-ha, hmm, hm, mm, mm-hmm, uh-huh, huh, em, erm, er, err, umm, uhh, mmm, huh, euh, ew, eh-eh
-If it appears 5 times → mark 5 times. If appears once → mark it.
-Examples:
-- "um hello um there um now" → 3 separate "um" fillers (positions: 0, 9, 19)
-- "uh I uh think uh it's uh ok" → 4 separate "uh" fillers
-- "hmm yes hmm maybe" → 2 "hmm" fillers
+def _candidate_context(text: str, start: int, end: int, radius: int = 45) -> str:
+    left = max(0, start - radius)
+    right = min(len(text), end + radius)
+    return text[left:right]
 
-==== TIER 2: VERBAL TICS & STALLING PHRASES (when used as filler, not content) ====
-Mark WHEN USED TO STALL OR FILL TIME (not when they're rhetorical/structural):
-like, you know, I mean, actually, basically, literally, well, sort of, kind of, right, yeah, okay, just, so, anyway, let me see, you see, for sure
 
-Examples:
-- "like I think like we should like do it" → Mark all 3 "like" if they're hesitation, not part of "like x"
-- "I mean I think I mean we should" → both "I mean" are fillers
-- "well you know well it's hard" → both uses of "well" and "you know" are fillers
+def _detect_contextual_candidates(text: str, existing: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Find exact candidate spans in the transcript. GPT may classify these spans,
+    but it is not allowed to invent new filler positions.
+    """
+    candidates: List[Dict[str, Any]] = []
+    if not text:
+        return candidates
 
-==== TIER 3: REPEATED OR STUTTERED WORDS (when person repeats due to hesitation, not emphasis) ====
-"I I think", "the the thing", "and and also" → mark repeated word as 1 filler instance
+    for pattern in CONTEXTUAL_FILLER_PATTERNS:
+        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+            start, end = match.span()
+            if _span_overlaps(start, end, existing) or _span_overlaps(start, end, candidates):
+                continue
+            word = text[start:end]
+            if not _should_accept_gpt_filler(word):
+                continue
+            candidates.append({
+                "id": len(candidates),
+                "word": word,
+                "position": start,
+                "length": end - start,
+                "context": _candidate_context(text, start, end),
+            })
 
-==== CRITICAL RULES ====
-1. Character precision: "position" MUST be exact 0-based index where filler STARTS in the raw text string.
-2. Length: Count exact characters. "um" = length 2. "mm-hmm" = length 6. "uh-huh" = length 6.
-3. VERIFY: I will check text[position:position+length] == word_from_json. If mismatch, it's wrong.
-4. DUPLICATION: If same word appears at 3 different places, output 3 entries with different positions.
-5. NO OVERLAPS: Entries must not overlap in character ranges.
-6. Word count: Split text by whitespace, count tokens. "don't" = 1 word. "uh-huh" = 1 token if contiguous.
+    # Repeated adjacent words caused by stutter: "I I", "the the".
+    repeated_word_pattern = re.compile(r"\b([A-Za-z][A-Za-z']*)\b([\s,.;:!?]+)\1\b", re.IGNORECASE)
+    for match in repeated_word_pattern.finditer(text):
+        start, end = match.start(1), match.end(1)
+        if _span_overlaps(start, end, existing) or _span_overlaps(start, end, candidates):
+            continue
+        candidates.append({
+            "id": len(candidates),
+            "word": text[start:end],
+            "position": start,
+            "length": end - start,
+            "context": _candidate_context(text, start, end),
+        })
 
-==== FALSE POSITIVES TO AVOID ====
-- "like" in "something like that" (comparison, not filler) — skip it
-- "right" when confirming "That's right, yes" — might be content, mark only if stalling sound
-- "I think" when introducing opinion — usually content, not hesitation; mark only if repeated/drawn-out
-- "okay" when acknowledging — content. Mark ONLY if drawn-out or repeated "okay okay"
+    return sorted(candidates, key=lambda item: item["position"])
 
-Preference: When in doubt, mark it. False positives (over-detection) are better than missing fillers.
 
-==== OUTPUT FORMAT (CRITICAL) ====
-Return PURE JSON, no markdown backticks, no explanation, no chatter:
+FILLER_CLASSIFICATION_PROMPT = """Classify only the provided candidate spans as filler or not filler.
 
-{
-  "word_count": 123,
-  "fillers": [
-    {"word": "um", "position": 5, "length": 2},
-    {"word": "uh", "position": 18, "length": 2},
-    {"word": "like", "position": 42, "length": 4},
-    {"word": "you know", "position": 60, "length": 8}
-  ]
-}
+Rules:
+- Accept a candidate only if the exact candidate words are used to stall, hesitate, restart, or buy thinking time.
+- Reject normal meaning/content uses, discourse structure, emphasis, comparison, agreement, or grammar.
+- Do not add new fillers. Do not change positions. Only return candidate IDs from the provided list.
+- When unsure, reject the candidate. Precision is more important than guessing.
 
-If NO fillers found:
-{
-  "word_count": 456,
-  "fillers": []
-}
-
-ALWAYS include "word_count" as an integer. ALWAYS use valid JSON.
-
-==== TEXT TO ANALYZE ====
+Return pure JSON:
+{"accepted_ids": [0, 2]}
 """
 
 
 async def detect_filler_words_with_gpt(text: str) -> Tuple[List[Dict[str, Any]], int]:
     """
-    Detect filler words and get word count using GPT.
-    Only for English text.
+    Detect filler words and get word count.
+
+    Explicit hesitation sounds are detected deterministically from the transcript.
+    GPT is only allowed to classify exact candidate spans that already exist in
+    the transcript, so it cannot invent filler positions.
 
     Returns:
-        (list of filler words with positions/lengths, word_count from GPT)
+        (list of filler words with positions/lengths, deterministic word_count)
     """
     from services.wpm_calculation import count_words
 
@@ -155,91 +174,53 @@ async def detect_filler_words_with_gpt(text: str) -> Tuple[List[Dict[str, Any]],
     word_count = count_words(text)
 
     try:
-        # Create prompt with the text
-        prompt = FILLER_WORD_DETECTION_PROMPT + text
-        
-        # Call GPT-4o for better accuracy
-        client = get_openai_client()
-        response = client.chat.completions.create(
-            model=GPT_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are the only source of filler detection and word count. You MUST find every filler with exact character positions and include word_count (total words in the text, split by whitespace). Return only valid JSON with word_count and fillers, no extra text."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=GPT_TEMPERATURE,
-            response_format={"type": "json_object"}
-        )
-        
-        # Parse the response
-        response_content = response.choices[0].message.content.strip()
-        
-        # Try to parse as JSON
-        word_count_from_gpt: Optional[int] = None
-        try:
-            parsed = json.loads(response_content)
-            if isinstance(parsed, dict):
-                word_count_from_gpt = parsed.get("word_count")
-                if word_count_from_gpt is not None:
-                    try:
-                        word_count_from_gpt = int(word_count_from_gpt)
-                    except (TypeError, ValueError):
-                        word_count_from_gpt = None
-            # Handle both direct array and wrapped object
-            if isinstance(parsed, list):
-                filler_words = parsed
-            elif isinstance(parsed, dict) and "fillers" in parsed:
-                filler_words = parsed["fillers"]
-            elif isinstance(parsed, dict) and "filler_words" in parsed:
-                filler_words = parsed["filler_words"]
-            else:
-                filler_words = []
-                if isinstance(parsed, dict):
-                    for key, value in parsed.items():
-                        if key != "word_count" and isinstance(value, list):
-                            filler_words = value
-                            break
-        except json.JSONDecodeError:
-            # If JSON parsing fails, try to extract JSON from markdown code blocks
-            json_match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', response_content, re.DOTALL)
-            if json_match:
-                filler_words = json.loads(json_match.group(1))
-            else:
-                # Last resort: try to find array pattern
-                array_match = re.search(r'\[.*?\]', response_content, re.DOTALL)
-                if array_match:
-                    filler_words = json.loads(array_match.group(0))
-                else:
-                    filler_words = []
-        
-        # Start with deterministic hesitation sounds, then let GPT add contextual
-        # fillers such as "you know", "I mean", or filler-like "like".
+        candidates = _detect_contextual_candidates(text, local_hesitations)
+
         validated_fillers = list(local_hesitations)
-        for filler in filler_words:
-            if isinstance(filler, dict) and "word" in filler and "position" in filler:
-                word = str(filler["word"])
-                position = int(filler["position"])
-                length = int(filler.get("length", len(word)))
-                
-                # Verify the position is valid
-                if 0 <= position < len(text):
-                    # Verify the word actually exists at that position
-                    actual_word = text[position:position+length]
-                    if (
-                        actual_word.strip().lower() == word.strip().lower()
-                        and _should_accept_gpt_filler(actual_word)
-                        and not _span_overlaps(position, position + length, validated_fillers)
-                    ):
-                        validated_fillers.append({
-                            "word": actual_word,
-                            "position": position,
-                            "length": length
-                        })
+        if candidates:
+            client = get_openai_client()
+            response = client.chat.completions.create(
+                model=GPT_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You classify candidate transcript spans as speech fillers. Return JSON only. Never add candidates.",
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            FILLER_CLASSIFICATION_PROMPT
+                            + "\nTranscript:\n"
+                            + text
+                            + "\n\nCandidates:\n"
+                            + json.dumps(candidates, ensure_ascii=False)
+                        ),
+                    },
+                ],
+                temperature=GPT_TEMPERATURE,
+                response_format={"type": "json_object"},
+            )
+            response_content = response.choices[0].message.content.strip()
+            parsed = json.loads(response_content)
+            accepted_ids = parsed.get("accepted_ids", []) if isinstance(parsed, dict) else []
+            accepted_ids = {int(item) for item in accepted_ids if isinstance(item, (int, str)) and str(item).isdigit()}
+
+            for candidate in candidates:
+                if candidate["id"] not in accepted_ids:
+                    continue
+                position = int(candidate["position"])
+                length = int(candidate["length"])
+                actual_word = text[position:position + length]
+                if (
+                    actual_word == candidate["word"]
+                    and _should_accept_gpt_filler(actual_word)
+                    and not _span_overlaps(position, position + length, validated_fillers)
+                ):
+                    validated_fillers.append({
+                        "word": actual_word,
+                        "position": position,
+                        "length": length,
+                    })
 
         # Sort by position and remove overlaps (keep first occurrence when overlapping)
         validated_fillers = sorted(validated_fillers, key=lambda x: x["position"])
@@ -251,12 +232,6 @@ async def detect_filler_words_with_gpt(text: str) -> Tuple[List[Dict[str, Any]],
             if start >= last_end:
                 non_overlapping.append(filler)
                 last_end = end
-
-        # Use GPT word_count if valid; otherwise fallback to local count
-        if word_count_from_gpt is not None and word_count_from_gpt >= 0:
-            word_count = word_count_from_gpt
-        else:
-            word_count = count_words(text)
 
         return (non_overlapping, word_count)
 
@@ -416,4 +391,3 @@ Answer with exactly one word: YES or NO.
     except Exception as e:
         print(f"Error checking relevance: {str(e)}")
         return True  # On error, do not penalize
-

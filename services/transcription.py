@@ -19,6 +19,8 @@ def _clean_transcription_artifacts(text: str) -> str:
     cleaned = text
     cleaned = re.sub(r"^\s*SPEAKER\s+\d+\s*[:\-]?\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"^\s*SPEAKER\s+AUDIO\s+ENDS\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bTranscribe EVERYTHING spoken, exactly as spoken\.?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bDO NOT remove, skip, or clean up filler words\.?", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     return cleaned
 
@@ -132,7 +134,7 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
             file=audio_file,
             language=TRANSCRIPTION_LANGUAGE,  # "en" = force English, no auto-detect
             prompt=WHISPER_PROMPT,
-            temperature=0.8,  # Optimal: captures filler words and natural speech variations
+            temperature=0.0,  # Deterministic: reduces prompt leakage and invented words.
             response_format="verbose_json",  # Critical: get segment-level timing for pause analysis
         )
     
@@ -193,4 +195,3 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
         "segments": segments,  # Include segments for pause analysis
         "language": detected_language,
     }
-

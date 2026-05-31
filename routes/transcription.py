@@ -94,13 +94,18 @@ async def _run_pipeline(
     if duration_seconds <= 0:
         raise HTTPException(status_code=400, detail="Could not determine audio duration. Please try again with a valid recording.")
 
-    filler_words, word_count_gpt = await detect_filler_words_with_gpt(text)
+    filler_words, detected_word_count = await detect_filler_words_with_gpt(text)
     cleaned_text = remove_filler_words(text, filler_words)
     wpm_data = calculate_wpm(text, duration_seconds)
-    wpm_data["word_count"] = word_count_gpt
-    wpm_data["wpm"] = round((word_count_gpt / duration_seconds) * 60, 2) if duration_seconds > 0 else 0.0
+    wpm_data["word_count"] = detected_word_count
+    wpm_data["wpm"] = round((detected_word_count / duration_seconds) * 60, 2) if duration_seconds > 0 else 0.0
 
-    pause_data = analyze_pauses_and_hesitations(text=text, segments=segments, filler_words=filler_words)
+    pause_data = analyze_pauses_and_hesitations(
+        text=text,
+        segments=segments,
+        filler_words=filler_words,
+        audio_file_path=temp_file_path,
+    )
     fluency_data = calculate_fluency_score(
         total_duration=duration_seconds,
         total_pause_time=pause_data["total_pause_time"],
@@ -247,6 +252,7 @@ async def transcribe_audio(
             average_pause_duration=pause_data["average_pause_duration"],
             total_pause_time=pause_data["total_pause_time"],
             hesitation_words=pause_data["hesitation_words"],
+            pause_source=pause_data.get("pause_source"),
             fluency_score=fluency_data["fluency_score"],
             pause_ratio=fluency_data["pause_ratio"],
             hesitation_rate=fluency_data["hesitation_rate"],
@@ -314,6 +320,7 @@ async def free_speech(file: UploadFile = File(...)):
             average_pause_duration=pause_data["average_pause_duration"],
             total_pause_time=pause_data["total_pause_time"],
             hesitation_words=pause_data["hesitation_words"],
+            pause_source=pause_data.get("pause_source"),
             fluency_score=fluency_data["fluency_score"],
             pause_ratio=fluency_data["pause_ratio"],
             hesitation_rate=fluency_data["hesitation_rate"],
@@ -332,4 +339,3 @@ async def free_speech(file: UploadFile = File(...)):
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         raise HTTPException(status_code=500, detail=f"Error processing audio: {str(e)}")
-

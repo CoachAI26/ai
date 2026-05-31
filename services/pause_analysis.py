@@ -15,6 +15,7 @@ def analyze_pauses_and_hesitations(
     segments: Optional[List[Dict[str, Any]]] = None,
     pause_threshold: Optional[float] = None,
     filler_words: Optional[List[Dict[str, Any]]] = None,
+    audio_file_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Analyze pauses (from Whisper segments) and hesitations (from GPT filler_words only).
@@ -24,6 +25,7 @@ def analyze_pauses_and_hesitations(
         segments: List of segments from Whisper with timestamps (optional)
         pause_threshold: Minimum duration in seconds to consider as a pause (default: from scoring_config)
         filler_words: List of filler items from GPT (each with "word"); used for total_hesitations and hesitation_words. If None, hesitations are 0.
+        audio_file_path: Raw audio path. When provided, pauses are detected from waveform silence/non-speech gaps first.
         
     Returns:
         Dictionary with total_pauses, total_hesitations, pause_durations, etc.
@@ -36,11 +38,15 @@ def analyze_pauses_and_hesitations(
         hesitation_words = []
     
     threshold = pause_threshold if pause_threshold is not None else PAUSE_THRESHOLD_SEC
-    # Analyze pauses from segments if available
     pause_durations = []
     total_pause_time = 0.0
+
+    audio_pause_durations = _detect_pauses_from_audio(audio_file_path, threshold) if audio_file_path else []
+    if audio_pause_durations:
+        pause_durations = audio_pause_durations
+        total_pause_time = sum(pause_durations)
     
-    if segments and len(segments) > 1:
+    if not pause_durations and segments and len(segments) > 1:
         # Calculate pauses between segments
         for i in range(len(segments) - 1):
             current_segment = segments[i]
@@ -72,6 +78,7 @@ def analyze_pauses_and_hesitations(
         "total_pause_time": round(total_pause_time, 1),
         "hesitation_words": hesitation_words,
         "pause_threshold_used": threshold,
+        "pause_source": "audio" if audio_pause_durations else "segments",
     }
 
 
@@ -90,6 +97,63 @@ def _get_segment_time(segment: Any, time_type: str) -> Optional[float]:
         return segment.get(time_type)
     else:
         return getattr(segment, time_type, None)
+
+
+def _detect_pauses_from_audio(
+    audio_file_path: Optional[str],
+    pause_threshold: float,
+    top_db: float = 28.0,
+    min_speech_duration: float = 0.08,
+) -> List[float]:
+    """
+    Detect pauses from the waveform by finding silent gaps between voiced regions.
+
+    This is intentionally used only for pause timing, not for inventing filler
+    words. If audio analysis is unavailable or unreliable, callers fall back to
+    Whisper segment gaps.
+    """
+    if not audio_file_path:
+        return []
+
+    try:
+        import librosa
+    except ImportError:
+        return []
+
+    try:
+        y, sr = librosa.load(audio_file_path, sr=16000, mono=True)
+        if y is None or len(y) == 0:
+            return []
+
+        frame_length = int(0.032 * sr)
+        hop_length = int(0.010 * sr)
+        intervals = librosa.effects.split(
+            y,
+            top_db=top_db,
+            frame_length=frame_length,
+            hop_length=hop_length,
+        )
+        if intervals is None or len(intervals) < 2:
+            return []
+
+        voiced_regions = []
+        for start_sample, end_sample in intervals:
+            start = float(start_sample) / sr
+            end = float(end_sample) / sr
+            if end - start >= min_speech_duration:
+                voiced_regions.append((start, end))
+
+        if len(voiced_regions) < 2:
+            return []
+
+        pauses = []
+        for (_, current_end), (next_start, _) in zip(voiced_regions, voiced_regions[1:]):
+            gap = next_start - current_end
+            if gap >= pause_threshold:
+                pauses.append(gap)
+        return pauses
+    except Exception:
+        return []
 
 
 def calculate_fluency_score(
@@ -143,4 +207,3 @@ def calculate_fluency_score(
         "pause_ratio": round(pause_ratio, 3),
         "hesitation_rate": round(hesitation_rate, 2)
     }
-

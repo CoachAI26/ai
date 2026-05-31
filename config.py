@@ -39,7 +39,7 @@ WHISPER_PROMPT = (
     "5. PAUSE INDICATOR: When speaker takes a physical pause/breath (0.3+ seconds), transcribe as-is; don't skip the surrounding words/fillers.\n"
     "6. ACCURACY over cleanliness: Include every 'um', 'uh', 'er', 'hmm' you hear, even if it sounds repetitive.\n"
     "7. CONTRACTED FILLERS: Preserve 'mm-hmm', 'uh-huh', 'um-um' exactly as heard.\n"
-    "DO NOT remove, skip, or clean up filler words. Transcribe EVERYTHING spoken, exactly as spoken."
+    "Include spoken fillers exactly as heard; do not clean up natural speech."
 )
 
 # Lazy initialization of OpenAI client
@@ -71,4 +71,3 @@ def get_openai_client() -> OpenAI:
             else:
                 raise
     return _openai_client
-
