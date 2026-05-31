@@ -205,6 +205,14 @@ async def transcribe_audio(
         confidence_data = data["confidence_data"]
         logger.info("Fillers | count=%d words=%s", len(filler_words), [f.get("word") for f in filler_words[:15]])
         logger.info("WPM | duration=%.2fs word_count=%d wpm=%.2f", wpm_data["duration_seconds"], wpm_data["word_count"], wpm_data["wpm"])
+        logger.info(
+            "Pauses | source=%s count=%d total=%.2fs avg=%.2fs durations=%s",
+            pause_data.get("pause_source"),
+            pause_data["total_pauses"],
+            pause_data["total_pause_time"],
+            pause_data["average_pause_duration"],
+            pause_data["pause_durations"][:20],
+        )
         off_topic = False
         if title and title.strip():
             is_relevant = await check_answer_relevance_to_title(title.strip(), text)
@@ -298,6 +306,14 @@ async def free_speech(file: UploadFile = File(...)):
         fluency_data = data["fluency_data"]
         confidence_data = data["confidence_data"]
         improved_text = await generate_improved_text(cleaned_text, level=None, category=None, title=None)
+        logger.info(
+            "Pauses | source=%s count=%d total=%.2fs avg=%.2fs durations=%s",
+            pause_data.get("pause_source"),
+            pause_data["total_pauses"],
+            pause_data["total_pause_time"],
+            pause_data["average_pause_duration"],
+            pause_data["pause_durations"][:20],
+        )
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         logger.info("---------- RESPONSE (free-speech) ---------- | confidence=%.2f rating=%s wpm=%.2f words=%d", confidence_data["confidence_score"], confidence_data["overall_rating"], wpm_data["wpm"], wpm_data["word_count"])

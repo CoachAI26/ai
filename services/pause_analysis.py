@@ -2,7 +2,10 @@
 Pause and Hesitation analysis service.
 Hesitation/filler counts come from GPT only (filler_words); no regex.
 """
+import logging
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 try:
     from scoring_config import PAUSE_THRESHOLD_SEC
@@ -127,6 +130,17 @@ def _detect_pauses_from_audio(
 
         frame_length = int(0.032 * sr)
         hop_length = int(0.010 * sr)
+        rms_pauses = _detect_pauses_from_rms(
+            y=y,
+            sr=sr,
+            pause_threshold=pause_threshold,
+            frame_length=frame_length,
+            hop_length=hop_length,
+        )
+        if rms_pauses:
+            logger.info("Audio pause detection | source=rms count=%d pauses=%s", len(rms_pauses), [round(p, 2) for p in rms_pauses])
+            return rms_pauses
+
         intervals = librosa.effects.split(
             y,
             top_db=top_db,
@@ -151,8 +165,73 @@ def _detect_pauses_from_audio(
             gap = next_start - current_end
             if gap >= pause_threshold:
                 pauses.append(gap)
+        if pauses:
+            logger.info("Audio pause detection | source=split count=%d pauses=%s", len(pauses), [round(p, 2) for p in pauses])
         return pauses
-    except Exception:
+    except Exception as exc:
+        logger.warning("Audio pause detection failed: %s", exc)
+        return []
+
+
+def _detect_pauses_from_rms(
+    y: Any,
+    sr: int,
+    pause_threshold: float,
+    frame_length: int,
+    hop_length: int,
+) -> List[float]:
+    """
+    RMS-based silence detector for real recordings.
+
+    Whisper segments can be too broad, and effects.split may treat noisy rooms as
+    continuously non-silent. This adaptive threshold looks for low-energy spans
+    inside the speech region and ignores leading/trailing silence.
+    """
+    try:
+        import librosa
+        import numpy as np
+
+        rms = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop_length, center=True)[0]
+        if rms.size == 0:
+            return []
+
+        rms_max = float(np.max(rms))
+        if rms_max <= 0:
+            return []
+
+        nonzero = rms[rms > 0]
+        low_floor = float(np.percentile(nonzero, 20)) if nonzero.size else 0.0
+        median = float(np.median(nonzero)) if nonzero.size else 0.0
+        silence_threshold = max(rms_max * 0.025, low_floor * 1.8, median * 0.08)
+        voiced = rms > silence_threshold
+
+        voiced_indices = np.where(voiced)[0]
+        if voiced_indices.size < 2:
+            return []
+
+        first_voice = int(voiced_indices[0])
+        last_voice = int(voiced_indices[-1])
+        pauses: List[float] = []
+        silence_start: Optional[int] = None
+
+        for idx in range(first_voice, last_voice + 1):
+            if not voiced[idx]:
+                if silence_start is None:
+                    silence_start = idx
+            elif silence_start is not None:
+                duration = (idx - silence_start) * hop_length / sr
+                if duration >= pause_threshold:
+                    pauses.append(duration)
+                silence_start = None
+
+        if silence_start is not None:
+            duration = (last_voice + 1 - silence_start) * hop_length / sr
+            if duration >= pause_threshold:
+                pauses.append(duration)
+
+        return pauses
+    except Exception as exc:
+        logger.warning("RMS pause detection failed: %s", exc)
         return []
 
 

@@ -2,12 +2,15 @@
 Audio transcription service using OpenAI Whisper
 """
 from typing import Dict, Any, List, Optional
+import logging
 from config import (
     get_openai_client,
     WHISPER_MODEL,
     WHISPER_PROMPT,
     TRANSCRIPTION_LANGUAGE,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _clean_transcription_artifacts(text: str) -> str:
@@ -188,6 +191,7 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
     # Filler detection must use only words present in the transcript; otherwise
     # we create guessed "um/uh" tokens that the user may not have actually said.
     text = _clean_transcription_artifacts(transcription.text)
+    logger.info("Transcription text | %s", text)
     
     return {
         "text": text,
