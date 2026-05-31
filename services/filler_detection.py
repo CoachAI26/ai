@@ -21,8 +21,7 @@ def _max_tokens_kwargs(n: int) -> dict:
     if _max_tokens_param is not None:
         return {_max_tokens_param: n}
     if GPT_MODEL.startswith(("gpt-5", "o1", "o3", "o4")):
-        _max_tokens_param = "max_completion_tokens"
-        return {_max_tokens_param: n}
+        return {}
     import inspect
     client = get_openai_client()
     sig = inspect.signature(client.chat.completions.create)

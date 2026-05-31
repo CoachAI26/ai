@@ -118,14 +118,21 @@ def _detect_pauses_from_audio(
     if not audio_file_path:
         return []
 
+    wav_pauses = _detect_pauses_from_wav(audio_file_path, pause_threshold)
+    if wav_pauses:
+        logger.info("Audio pause detection | source=wav-rms count=%d pauses=%s", len(wav_pauses), [round(p, 2) for p in wav_pauses])
+        return wav_pauses
+
     try:
         import librosa
     except ImportError:
+        logger.info("Audio pause detection | librosa unavailable, falling back to Whisper segments")
         return []
 
     try:
         y, sr = librosa.load(audio_file_path, sr=16000, mono=True)
         if y is None or len(y) == 0:
+            logger.info("Audio pause detection | empty audio")
             return []
 
         frame_length = int(0.032 * sr)
@@ -148,6 +155,7 @@ def _detect_pauses_from_audio(
             hop_length=hop_length,
         )
         if intervals is None or len(intervals) < 2:
+            logger.info("Audio pause detection | source=split count=0")
             return []
 
         voiced_regions = []
@@ -158,6 +166,7 @@ def _detect_pauses_from_audio(
                 voiced_regions.append((start, end))
 
         if len(voiced_regions) < 2:
+            logger.info("Audio pause detection | source=split count=0")
             return []
 
         pauses = []
@@ -167,10 +176,124 @@ def _detect_pauses_from_audio(
                 pauses.append(gap)
         if pauses:
             logger.info("Audio pause detection | source=split count=%d pauses=%s", len(pauses), [round(p, 2) for p in pauses])
+        else:
+            logger.info("Audio pause detection | source=split count=0")
         return pauses
     except Exception as exc:
         logger.warning("Audio pause detection failed: %s", exc)
         return []
+
+
+def _detect_pauses_from_wav(audio_file_path: str, pause_threshold: float) -> List[float]:
+    """
+    WAV-only pause detector with no third-party dependency.
+
+    Counts low-RMS gaps inside the recording, including leading/trailing silence.
+    This keeps pause analysis alive in environments where librosa is not installed.
+    """
+    if not audio_file_path.lower().endswith(".wav"):
+        return []
+
+    try:
+        import wave
+        import struct
+        import math
+
+        with wave.open(audio_file_path, "rb") as wav:
+            channels = wav.getnchannels()
+            sample_width = wav.getsampwidth()
+            sample_rate = wav.getframerate()
+            frame_count = wav.getnframes()
+            raw = wav.readframes(frame_count)
+
+        if not raw or sample_rate <= 0 or channels <= 0:
+            return []
+
+        samples: List[float] = []
+        if sample_width == 1:
+            values = [b - 128 for b in raw]
+            step = channels
+            for i in range(0, len(values), step):
+                frame = values[i:i + step]
+                samples.append(sum(frame) / max(1, len(frame)) / 128.0)
+        elif sample_width == 2:
+            total_values = len(raw) // 2
+            values = struct.unpack("<" + "h" * total_values, raw)
+            for i in range(0, len(values), channels):
+                frame = values[i:i + channels]
+                samples.append(sum(frame) / max(1, len(frame)) / 32768.0)
+        elif sample_width == 4:
+            total_values = len(raw) // 4
+            values = struct.unpack("<" + "i" * total_values, raw)
+            for i in range(0, len(values), channels):
+                frame = values[i:i + channels]
+                samples.append(sum(frame) / max(1, len(frame)) / 2147483648.0)
+        else:
+            logger.info("Audio pause detection | unsupported wav sample_width=%s", sample_width)
+            return []
+
+        if not samples:
+            return []
+
+        frame_size = max(1, int(0.032 * sample_rate))
+        hop_size = max(1, int(0.010 * sample_rate))
+        rms_values: List[float] = []
+        for start in range(0, max(1, len(samples) - frame_size + 1), hop_size):
+            frame = samples[start:start + frame_size]
+            if not frame:
+                continue
+            rms = math.sqrt(sum(sample * sample for sample in frame) / len(frame))
+            rms_values.append(rms)
+
+        pauses = _detect_pauses_from_rms_values(rms_values, sample_rate, hop_size, pause_threshold)
+        if not pauses:
+            logger.info("Audio pause detection | source=wav-rms count=0")
+        return pauses
+    except Exception as exc:
+        logger.warning("WAV pause detection failed: %s", exc)
+        return []
+
+
+def _detect_pauses_from_rms_values(
+    rms_values: List[float],
+    sr: int,
+    hop_length: int,
+    pause_threshold: float,
+) -> List[float]:
+    if not rms_values:
+        return []
+
+    positive = sorted(value for value in rms_values if value > 0)
+    if not positive:
+        return []
+
+    rms_max = max(positive)
+    median = positive[len(positive) // 2]
+    low_floor = positive[max(0, int(len(positive) * 0.2) - 1)]
+    silence_threshold = max(rms_max * 0.025, low_floor * 1.8, median * 0.08)
+    silence_threshold = min(silence_threshold, rms_max * 0.35)
+    voiced = [value > silence_threshold for value in rms_values]
+    if not any(voiced):
+        return []
+
+    pauses: List[float] = []
+    silence_start: Optional[int] = None
+    for idx, is_voiced in enumerate(voiced):
+        if not is_voiced:
+            if silence_start is None:
+                silence_start = idx
+        elif silence_start is not None:
+            duration = (idx - silence_start) * hop_length / sr
+            if duration >= pause_threshold:
+                pauses.append(duration)
+            silence_start = None
+
+    if silence_start is not None:
+        duration = (len(voiced) - silence_start) * hop_length / sr
+        if duration >= pause_threshold:
+            pauses.append(duration)
+
+    return pauses
 
 
 def _detect_pauses_from_rms(
@@ -199,37 +322,7 @@ def _detect_pauses_from_rms(
         if rms_max <= 0:
             return []
 
-        nonzero = rms[rms > 0]
-        low_floor = float(np.percentile(nonzero, 20)) if nonzero.size else 0.0
-        median = float(np.median(nonzero)) if nonzero.size else 0.0
-        silence_threshold = max(rms_max * 0.025, low_floor * 1.8, median * 0.08)
-        voiced = rms > silence_threshold
-
-        voiced_indices = np.where(voiced)[0]
-        if voiced_indices.size < 2:
-            return []
-
-        first_voice = int(voiced_indices[0])
-        last_voice = int(voiced_indices[-1])
-        pauses: List[float] = []
-        silence_start: Optional[int] = None
-
-        for idx in range(first_voice, last_voice + 1):
-            if not voiced[idx]:
-                if silence_start is None:
-                    silence_start = idx
-            elif silence_start is not None:
-                duration = (idx - silence_start) * hop_length / sr
-                if duration >= pause_threshold:
-                    pauses.append(duration)
-                silence_start = None
-
-        if silence_start is not None:
-            duration = (last_voice + 1 - silence_start) * hop_length / sr
-            if duration >= pause_threshold:
-                pauses.append(duration)
-
-        return pauses
+        return _detect_pauses_from_rms_values([float(value) for value in rms], sr, hop_length, pause_threshold)
     except Exception as exc:
         logger.warning("RMS pause detection failed: %s", exc)
         return []
