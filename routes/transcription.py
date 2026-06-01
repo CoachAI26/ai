@@ -9,6 +9,7 @@ from fastapi import APIRouter, File, UploadFile, HTTPException, Form
 logger = logging.getLogger(__name__)
 from models.schemas import TranscriptionResponse
 from services.transcription import transcribe_audio_file
+from services.transcription import ENGLISH_ONLY_MESSAGE
 from services.filler_detection import (
     detect_filler_words_with_gpt,
     remove_filler_words,
@@ -88,7 +89,7 @@ async def _run_pipeline(
     detected_language = (transcription_result.get("language") or "").strip().lower()
 
     if detected_language and detected_language not in ("en", "english"):
-        raise HTTPException(status_code=400, detail="Please speak in English. Other languages are not accepted.")
+        raise HTTPException(status_code=400, detail=ENGLISH_ONLY_MESSAGE)
     if not (text and text.strip()):
         raise HTTPException(status_code=400, detail="No speech detected in the audio. Please try again with a clear recording.")
     if duration_seconds <= 0:

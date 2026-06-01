@@ -12,6 +12,8 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
+ENGLISH_ONLY_MESSAGE = "Please speak in English only."
+
 
 def _clean_transcription_artifacts(text: str) -> str:
     """Remove non-speech labels that Whisper sometimes emits as words."""
@@ -128,6 +130,17 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
         - duration_seconds: Duration of the audio in seconds
     """
     client = get_openai_client()
+
+    language_check = _detect_spoken_language(client, audio_file_path)
+    detected_before_forcing = (language_check.get("language") or "").strip().lower()
+    if detected_before_forcing and detected_before_forcing not in ("en", "english"):
+        logger.info("Language check rejected audio | detected_language=%s", detected_before_forcing)
+        return {
+            "text": "",
+            "duration_seconds": language_check.get("duration_seconds", 0.0),
+            "segments": language_check.get("segments"),
+            "language": detected_before_forcing,
+        }
     
     # Force language so Whisper does not misdetect (e.g. English detected as Welsh).
     # We only accept English; TRANSCRIPTION_LANGUAGE is "en" in config.
@@ -197,5 +210,44 @@ async def transcribe_audio_file(audio_file_path: str) -> Dict[str, Any]:
         "text": text,
         "duration_seconds": duration_seconds,
         "segments": segments,  # Include segments for pause analysis
-        "language": detected_language,
+        "language": detected_before_forcing or detected_language,
     }
+
+
+def _detect_spoken_language(client: Any, audio_file_path: str) -> Dict[str, Any]:
+    """
+    Let Whisper auto-detect the spoken language before forcing English.
+
+    Accent is fine: accented English should still be detected as English. This
+    precheck is only for rejecting clearly non-English speech.
+    """
+    try:
+        with open(audio_file_path, "rb") as audio_file:
+            transcription = client.audio.transcriptions.create(
+                model=WHISPER_MODEL,
+                file=audio_file,
+                temperature=0.0,
+                response_format="verbose_json",
+            )
+
+        raw_duration = getattr(transcription, "duration", None)
+        if raw_duration is None and isinstance(transcription, dict):
+            raw_duration = transcription.get("duration")
+
+        segments = getattr(transcription, "segments", None)
+        if segments is None and isinstance(transcription, dict):
+            segments = transcription.get("segments")
+
+        language = getattr(transcription, "language", None)
+        if language is None and isinstance(transcription, dict):
+            language = transcription.get("language")
+
+        logger.info("Language check | detected_language=%s", language or "-")
+        return {
+            "language": language,
+            "duration_seconds": float(raw_duration) if isinstance(raw_duration, (int, float)) else 0.0,
+            "segments": segments,
+        }
+    except Exception as exc:
+        logger.warning("Language check failed, continuing with English transcription: %s", exc)
+        return {"language": None, "duration_seconds": 0.0, "segments": None}
