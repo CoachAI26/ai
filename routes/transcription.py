@@ -225,15 +225,15 @@ async def transcribe_audio(
             logger.info("Off-topic -> improved_text: [fixed message]")
             confidence_data = {
                 **confidence_data,
-                "confidence_score": round(min(confidence_data["confidence_score"] * 0.5, 40.0), 2),
-                "wpm_score": round(min(confidence_data["wpm_score"] * 0.5, 50.0), 2),
-                "filler_score": round(min(confidence_data["filler_score"] * 0.5, 50.0), 2),
-                "pause_score": round(min(confidence_data["pause_score"] * 0.5, 50.0), 2),
-                "hesitation_score": round(min(confidence_data["hesitation_score"] * 0.5, 50.0), 2),
-                "overall_rating": "Low",
+                "confidence_score": 0.0,
+                "wpm_score": 0.0,
+                "filler_score": 0.0,
+                "pause_score": 0.0,
+                "hesitation_score": 0.0,
+                "overall_rating": "Very Low",
                 "recommendations": [
                     f"Try to address the challenge topic: \"{title}\". Speak about the question or key points related to it instead of going off-topic.",
-                    "Your response was not related to the given challenge. Next time, stay on topic to get a proper score and feedback.",
+                    "Your response was not related to the given challenge, so no score was awarded. Please try again and stay on topic.",
                 ],
             }
         else:
