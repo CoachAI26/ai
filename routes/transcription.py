@@ -16,6 +16,7 @@ from services.filler_detection import (
     generate_improved_text,
     check_answer_relevance_to_title,
     OFF_TOPIC_MESSAGE,
+    OFF_TOPIC_ALERT_CODE,
 )
 from services.wpm_calculation import calculate_wpm
 from services.pause_analysis import analyze_pauses_and_hesitations, calculate_fluency_score
@@ -222,7 +223,7 @@ async def transcribe_audio(
             logger.info("Relevance check | title=%s relevant=%s off_topic=%s", title[:40], is_relevant, off_topic)
         if off_topic:
             improved_text = OFF_TOPIC_MESSAGE
-            logger.info("Off-topic -> improved_text: [fixed message]")
+            logger.info("Off-topic -> fixed alert response, no score/recommendations")
             confidence_data = {
                 **confidence_data,
                 "confidence_score": 0.0,
@@ -231,10 +232,7 @@ async def transcribe_audio(
                 "pause_score": 0.0,
                 "hesitation_score": 0.0,
                 "overall_rating": "Very Low",
-                "recommendations": [
-                    f"Try to address the challenge topic: \"{title}\". Speak about the question or key points related to it instead of going off-topic.",
-                    "Your response was not related to the given challenge, so no score was awarded. Please try again and stay on topic.",
-                ],
+                "recommendations": [],
             }
         else:
             improved_text = await generate_improved_text(cleaned_text, level=level, category=category, title=title)
@@ -249,6 +247,10 @@ async def transcribe_audio(
             level=level,
             category=category,
             title=title,
+            response_status="off_topic" if off_topic else "ok",
+            score_awarded=not off_topic,
+            alert_code=OFF_TOPIC_ALERT_CODE if off_topic else None,
+            alert_message=OFF_TOPIC_MESSAGE if off_topic else None,
             filler_words=filler_words,
             filler_count=len(filler_words),
             cleaned_text=cleaned_text,
@@ -325,6 +327,10 @@ async def free_speech(file: UploadFile = File(...)):
             level=None,
             category=None,
             title=None,
+            response_status="ok",
+            score_awarded=True,
+            alert_code=None,
+            alert_message=None,
             filler_words=filler_words,
             filler_count=len(filler_words),
             cleaned_text=cleaned_text,

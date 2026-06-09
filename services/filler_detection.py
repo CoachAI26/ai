@@ -350,6 +350,7 @@ OFF_TOPIC_MESSAGE = (
     "Your response doesn't seem to address the challenge topic. "
     "Please try again and speak about the given question or topic."
 )
+OFF_TOPIC_ALERT_CODE = "OFF_TOPIC_CHALLENGE"
 
 
 async def check_answer_relevance_to_title(title: str, user_text: str) -> bool:

@@ -20,6 +20,10 @@ class TranscriptionResponse(BaseModel):
     level: Optional[str] = None
     category: Optional[str] = None
     title: Optional[str] = None
+    response_status: str = "ok"
+    score_awarded: bool = True
+    alert_code: Optional[str] = None
+    alert_message: Optional[str] = None
     filler_words: List[Dict[str, Any]]
     filler_count: int
     cleaned_text: str
